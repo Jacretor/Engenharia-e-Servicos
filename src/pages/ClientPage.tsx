@@ -171,19 +171,19 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col lg:flex-row pb-20 lg:pb-0">
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-6 left-6 right-6 z-50 bg-[#0B1120]/90 backdrop-blur-xl rounded-[32px] p-2 flex items-center justify-around border border-white/10 shadow-2xl">
+      <nav className="lg:hidden fixed bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6 z-50 bg-[#0B1120]/95 backdrop-blur-xl rounded-3xl p-1.5 flex items-center justify-around border border-white/10 shadow-2xl">
         {sidebarItems.map(item => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id as TabType)}
-            className={`flex flex-col items-center gap-1 p-4 rounded-2xl transition-all ${
+            className={`flex flex-col items-center gap-[2px] px-1.5 py-2 sm:px-3 sm:py-3.5 rounded-xl transition-all ${
               activeTab === item.id 
-              ? 'bg-brand-cyan text-[#0B1120] shadow-xl' 
-              : 'text-slate-400'
+              ? 'bg-brand-cyan text-[#0B1120] shadow-md font-black' 
+              : 'text-slate-400 hover:text-white'
             }`}
           >
-            <item.icon size={20} />
-            <span className="text-[8px] font-black uppercase tracking-widest">{item.label.split(' ')[0]}</span>
+            <item.icon size={16} className="sm:w-[20px] sm:h-[20px]" />
+            <span className="text-[7px] sm:text-[8px] font-bold uppercase tracking-wider">{item.label.split(' ')[0]}</span>
           </button>
         ))}
       </nav>
@@ -462,13 +462,29 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
                               alt={p.nome}
                               loading="lazy"
                               decoding="async"
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                              className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ${p.quantidade === 0 ? 'grayscale opacity-60' : ''}`}
                               referrerPolicy="no-referrer"
                            />
-                           <div className="absolute top-4 left-4">
-                             <span className="px-3 py-1 bg-white/90 text-slate-900 text-[9px] font-black uppercase tracking-widest rounded-lg backdrop-blur">
+                           <div className="absolute top-4 left-4 flex flex-col gap-2">
+                             <span className="px-3 py-1 bg-[#0B1120] text-brand-cyan text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg">
                                {p.categoria}
                              </span>
+                             {p.quantidade === 0 ? (
+                               <div className="flex items-center gap-2 px-3 py-1 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg animate-pulse">
+                                 <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                 Esgotado
+                               </div>
+                             ) : p.quantidade <= 10 ? (
+                               <div className="flex items-center gap-2 px-3 py-1 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg animate-pulse">
+                                 <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                 Stock Baixo ({p.quantidade})
+                               </div>
+                             ) : (
+                               <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg">
+                                 <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                                 Em Stock
+                               </div>
+                             )}
                            </div>
                         </div>
                         <div className="p-8 flex-1 flex flex-col">
@@ -479,26 +495,28 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
                               <div className="flex items-center justify-between">
                                  <div>
                                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">Preço Unitário</p>
-                                   <p className="text-lg font-black text-[#0B1120] tracking-tighter">
+                                   <p className={`text-lg font-black tracking-tighter ${p.quantidade === 0 ? 'text-slate-300 line-through' : 'text-[#0B1120]'}`}>
                                      {p.preco.toLocaleString()} <span className="text-[10px] font-bold text-slate-300 ml-1">Kz/MT</span>
                                    </p>
                                  </div>
                                  <button 
+                                   disabled={p.quantidade === 0}
                                    onClick={() => onAddToCart(p)}
-                                   className="w-12 h-12 bg-slate-50 text-[#0B1120] border border-slate-100 rounded-2xl flex items-center justify-center hover:bg-brand-cyan hover:text-[#0B1120] hover:border-brand-cyan transition-all active:scale-90 shadow-sm"
-                                   title="Adicionar ao Carrinho"
+                                   className="w-12 h-12 bg-slate-50 text-[#0B1120] border border-slate-100 rounded-2xl flex items-center justify-center hover:bg-brand-cyan hover:text-[#0B1120] hover:border-brand-cyan transition-all active:scale-90 shadow-sm disabled:opacity-20 disabled:cursor-not-allowed"
+                                   title={p.quantidade === 0 ? "Indisponível" : "Adicionar ao Carrinho"}
                                  >
                                    <Plus size={20} />
                                  </button>
                               </div>
                               <button 
+                                disabled={p.quantidade === 0}
                                 onClick={() => {
                                   onAddToCart(p);
                                   onOpenCart();
                                 }}
-                                className="w-full py-4 bg-[#0B1120] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-brand-purple transition-all active:scale-95 shadow-xl shadow-[#0B1120]/10 border border-white/5"
+                                className="w-full py-4 bg-[#0B1120] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-brand-purple transition-all active:scale-95 shadow-xl shadow-[#0B1120]/10 border border-white/5 disabled:bg-slate-100 disabled:text-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
                               >
-                                Adquirir Ativo
+                                {p.quantidade === 0 ? 'Indisponível' : 'Adquirir Ativo'}
                               </button>
                            </div>
                         </div>

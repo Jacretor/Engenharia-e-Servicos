@@ -29,22 +29,22 @@ export const Navigation = ({ user, cartCount, onOpenCart }: NavigationProps) => 
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-black/5">
-      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-6 group">
-          <div className="relative">
-            <div className="w-14 h-14 bg-[#0B1120] rounded-2xl flex items-center justify-center overflow-hidden border border-white/10 shadow-2xl group-hover:border-brand-cyan/50 transition-all duration-500 p-1">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-b border-black/5">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2 sm:gap-4 md:gap-6 group">
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-[#0B1120] rounded-xl sm:rounded-2xl flex items-center justify-center overflow-hidden border border-white/10 shadow-2xl group-hover:border-brand-cyan/50 transition-all duration-500 p-1">
                <img src="/LogoTipo.png" className="w-full h-full object-contain" alt="E&S Logo" onError={(e) => {
                  (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=ES&background=0B1120&color=00D2FF&bold=true';
                }} />
             </div>
-            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-brand-cyan rounded-full border-2 border-white animate-pulse" />
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 bg-brand-cyan rounded-full border-2 border-white animate-pulse" />
           </div>
           <div className="flex flex-col">
-            <span className="text-xl font-black text-[#0B1120] tracking-tighter uppercase leading-none block">
+            <span className="text-xs sm:text-base md:text-xl font-black text-[#0B1120] tracking-tighter uppercase leading-none block">
               Engenharia & Serviços
             </span>
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.4em] block mt-1">
+            <span className="text-[7px] sm:text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] sm:tracking-[0.4em] block mt-0.5 sm:mt-1">
               SU, LDA • Moçambique
             </span>
           </div>
@@ -114,7 +114,7 @@ export const Navigation = ({ user, cartCount, onOpenCart }: NavigationProps) => 
           ) : (
             <Link 
               to="/login" 
-              className="px-10 py-3 bg-ink text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-accent transition-all shadow-2xl shadow-black/10"
+              className="px-4 py-2 sm:px-6 sm:py-2.5 md:px-10 md:py-3 bg-ink text-white rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest hover:bg-accent transition-all shadow-lg active:scale-95"
             >
               Fazer Login
             </Link>

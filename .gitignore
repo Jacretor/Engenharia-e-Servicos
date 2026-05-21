@@ -1,1 +1,2 @@
-node_modules
+.env 
+git commit -m "Removendo .env do rastreamento"

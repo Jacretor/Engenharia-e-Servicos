@@ -4,15 +4,27 @@ import { Package, ShieldCheck, Wrench, Cpu, Plus, Zap, Search } from 'lucide-rea
 import { Produto, Category } from '../types';
 import { useNavigate, Link } from 'react-router-dom';
 
-interface HomePageProps {
-  user: any;
-}
-
-export const HomePage = ({ user }: HomePageProps) => {
+export const HomePage = () => {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const navigate = useNavigate();
+
+  // Sliding beautiful background images carousel
+  const backgroundImages = [
+    "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1600&q=80", // Industrial Precision
+    "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1600&q=80", // Factory Machine Welding Sparks
+    "https://images.unsplash.com/photo-1537462715879-360eeb61a0bc?auto=format&fit=crop&w=1600&q=80", // Precision Machining tool
+    "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1600&q=80"  // Industrial electrical infrastructure
+  ];
+  const [currentBgIdx, setCurrentBgIdx] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIdx((prev) => (prev + 1) % backgroundImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     // Handle hash scroll on mount
@@ -57,14 +69,21 @@ export const HomePage = ({ user }: HomePageProps) => {
       {/* Hero Section - High Tech Reveal */}
       <section className="relative min-h-screen flex items-center pt-20 overflow-hidden bg-[#0B1120]">
         {/* Abstract Tech Grid Background */}
-        <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
-        <div className="absolute top-0 right-0 w-full lg:w-3/4 h-full overflow-hidden opacity-30 lg:opacity-60">
+        <div className="absolute inset-0 opacity-15 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
+        
+        {/* Sliding background container */}
+        <div className="absolute top-0 right-0 w-full lg:w-3/4 h-full overflow-hidden opacity-30 lg:opacity-60 transition-all duration-1000">
            <div className="absolute inset-0 bg-gradient-to-r from-[#0B1120] via-transparent to-transparent z-10" />
-           <img 
-            src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80" 
-            className="w-full h-full object-cover scale-110 blur-[2px]" 
-            alt="Engineering Detail"
-           />
+           {backgroundImages.map((img, idx) => (
+             <img 
+               key={img}
+               src={img} 
+               className={`absolute inset-0 w-full h-full object-cover scale-110 blur-[1px] transition-opacity duration-[1500ms] ${
+                 idx === currentBgIdx ? 'opacity-100 z-0' : 'opacity-0 -z-10'
+               }`} 
+               alt={`Engineering background slide ${idx + 1}`}
+             />
+           ))}
            <div className="absolute inset-0 bg-[#0B1120]/40 mix-blend-multiply" />
         </div>
 
@@ -98,16 +117,16 @@ export const HomePage = ({ user }: HomePageProps) => {
               A <span className="text-white">Engenharia & Serviços SU, LDA</span> liderada por Lavo João Mouzinho, redefine a infraestrutura industrial com tecnologia de vanguarda e logística de elite.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-6 items-center">
+            <div className="flex flex-col sm:flex-row gap-6 items-center w-full sm:w-auto">
               <button 
                 onClick={() => navigate('/cadastro')}
-                className="w-full sm:w-auto px-10 py-6 bg-brand-cyan text-[#0B1120] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white transition-all shadow-[0_0_40px_rgba(0,210,255,0.3)] active:scale-95"
+                className="w-full sm:w-auto px-10 py-5 sm:py-6 bg-brand-cyan text-[#0B1120] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white transition-all shadow-[0_0_40px_rgba(0,210,255,0.3)] active:scale-95 text-center"
               >
-                Inicie o Protocolo
+                Criar Conta
               </button>
               <button 
                 onClick={() => document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' })}
-                className="w-full sm:w-auto px-10 py-6 bg-white/5 text-white border border-white/10 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all backdrop-blur-md active:scale-95"
+                className="w-full sm:w-auto px-10 py-5 sm:py-6 bg-white/5 text-white border border-white/10 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all backdrop-blur-md active:scale-95 text-center"
               >
                 Serviços Técnicos
               </button>
