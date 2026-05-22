@@ -30,7 +30,7 @@ import autoTable from 'jspdf-autotable';
 import { Produto, Category, User } from '../types';
 
 export const AdminPage = () => {
-  const [activeTab, setActiveTab] = useState<'inventory' | 'clients' | 'stats'>('stats');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'clients' | 'stats' | 'orders'>('stats');
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [clientes, setClientes] = useState<User[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -97,33 +97,97 @@ export const AdminPage = () => {
   const [fotoUrl, setFotoUrl] = useState('');
   const [descricao, setDescricao] = useState('');
 
+  // Encomendas and Local File Upload States
+  const [encomendas, setEncomendas] = useState<any[]>([]);
+  const [uploadProgress, setUploadProgress] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleProductUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadProgress(true);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      try {
+        const res = await fetch('/api/upload-base64', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: file.name, data: base64 })
+        });
+        if (res.ok) {
+          const resData = await res.json();
+          setFotoUrl(resData.url);
+        } else {
+          setFotoUrl(base64);
+        }
+      } catch (err) {
+        console.error(err);
+        setFotoUrl(base64);
+      } finally {
+        setUploadProgress(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUpdateOrderStatus = async (id: string, status: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/encomendas/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, [activeTab]);
 
   const fetchData = async () => {
     setLoading(true);
-    const endpoint = activeTab === 'inventory' || activeTab === 'stats' ? '/api/produtos' : '/api/clientes';
+    let endpoint = '/api/produtos';
+    if (activeTab === 'clients') endpoint = '/api/clientes';
+    if (activeTab === 'orders') endpoint = '/api/admin/encomendas';
+
     try {
       const res = await fetch(endpoint);
       if (!res.ok) throw new Error('API error');
       const data = await res.json();
+      
       if (activeTab === 'inventory' || activeTab === 'stats') {
-        const prods = Array.isArray(data) ? data : [];
-        setProdutos(prods);
-        // Also ensure we have clients for the community count in stats
+        setProdutos(Array.isArray(data) ? data : []);
         if (activeTab === 'stats') {
           const clientRes = await fetch('/api/clientes');
           const clientData = await clientRes.json();
           setClientes(Array.isArray(clientData) ? clientData : []);
+          
+          try {
+            const ordersRes = await fetch('/api/admin/encomendas');
+            const ordersData = await ordersRes.json();
+            setEncomendas(Array.isArray(ordersData) ? ordersData : []);
+          } catch (err) { console.error(err); }
         }
-      } else {
+      } else if (activeTab === 'clients') {
         setClientes(Array.isArray(data) ? data : []);
+      } else if (activeTab === 'orders') {
+        setEncomendas(Array.isArray(data) ? data : []);
       }
     } catch (e) { 
       console.error(e); 
       if (activeTab === 'inventory') setProdutos([]);
-      else setClientes([]);
+      else if (activeTab === 'clients') setClientes([]);
+      else if (activeTab === 'orders') setEncomendas([]);
     } finally {
       setLoading(false);
     }
@@ -249,9 +313,10 @@ export const AdminPage = () => {
   };
 
   const sidebarItems = [
-    { id: 'inventory', label: 'Inventário', icon: Package },
-    { id: 'clients', label: 'Clientes', icon: Users },
-    { id: 'stats', label: 'Dashboard', icon: TrendingUp }
+    { id: 'inventory', label: 'Inventário / Stock', icon: Package },
+    { id: 'clients', label: 'Clientes Registados', icon: Users },
+    { id: 'orders', label: 'Encomendas / Pedidos', icon: FileText },
+    { id: 'stats', label: 'Análise de Negócio', icon: TrendingUp }
   ];
 
   const filteredProdutos = React.useMemo(() => {
@@ -355,9 +420,11 @@ export const AdminPage = () => {
               {activeTab === 'inventory' ? (
                 <>Logística & <span className="italic text-brand-cyan underline decoration-brand-cyan/20">Stock</span></>
               ) : activeTab === 'clients' ? (
-                <>Comunidade & <span className="italic text-brand-purple underline decoration-brand-purple/20">CRM</span></>
+                <>Nossos & <span className="italic text-brand-purple underline decoration-brand-purple/20">Clientes</span></>
+              ) : activeTab === 'orders' ? (
+                <>Pedidos & <span className="italic text-brand-cyan underline decoration-brand-cyan/20">Encomendas</span></>
               ) : (
-                <>Business & <span className="italic text-brand-cyan underline decoration-brand-cyan/20">Growth</span></>
+                <>Estatísticas & <span className="italic text-brand-cyan underline decoration-brand-cyan/20">Painel</span></>
               )}
             </h1>
           </div>
@@ -375,7 +442,7 @@ export const AdminPage = () => {
                 onClick={exportPDF}
                 className="px-8 lg:px-10 py-5 bg-brand-purple text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-4 hover:bg-[#0B1120] transition-all shadow-2xl active:scale-95"
               >
-                <Download size={22} /> <span className="hidden sm:inline">Exportar Inteligência</span>
+                <Download size={22} /> <span className="hidden sm:inline">Exportar Relatório</span>
               </button>
             )}
           </div>
@@ -418,7 +485,59 @@ export const AdminPage = () => {
             </div>
 
             <div className="bg-white rounded-[32px] lg:rounded-[40px] border border-slate-100 overflow-hidden shadow-2xl shadow-[#0B1120]/5">
-              <div className="overflow-x-auto">
+              
+              {/* Responsive Mobile Layout (block md:hidden) */}
+              <div className="grid grid-cols-1 gap-6 md:hidden p-4">
+                {filteredProdutos.map(p => (
+                  <div key={p.id} className="bg-slate-50 border border-slate-100/80 rounded-3xl p-6 flex flex-col gap-4 shadow-sm hover:shadow-md transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-2xl bg-white overflow-hidden border border-black/5 flex-shrink-0 p-1 flex items-center justify-center">
+                        {p.foto_url ? (
+                          <img src={p.foto_url} className="w-full h-full object-cover rounded-xl" />
+                        ) : (
+                          <div className="text-3xl">📦</div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="block font-black text-[#0B1120] uppercase tracking-tighter text-base truncate">{p?.nome || 'Sem Nome'}</span>
+                        <span className="block text-[9px] font-bold text-brand-purple/40 uppercase tracking-widest mt-0.5">REG: {p?.id ? String(p.id).slice(0, 8) : '---'}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 border-t border-b border-slate-200/50 py-4">
+                      <div>
+                        <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Setor Técnico</span>
+                        <span className="inline-block px-3 py-1 bg-white border border-slate-100 rounded-full text-[9px] font-black uppercase tracking-widest text-[#0B1120]/60">{p.categoria}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Preço Unitário</span>
+                        <span className="font-black text-sm tracking-tighter text-[#0B1120]">{p.preco ? p.preco.toLocaleString() : '0'} <span className="text-[9px] text-slate-400">MT</span></span>
+                      </div>
+                      <div>
+                        <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Stock Disponível</span>
+                        <div className="flex items-center gap-1.5">
+                           <div className={`w-2 h-2 rounded-full ${p.quantidade < 5 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+                           <span className={`text-[9px] font-black uppercase tracking-widest ${p.quantidade < 5 ? 'text-red-500' : 'text-slate-400'}`}>
+                             {p.quantidade} Unidades
+                           </span>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Avaliação Física</span>
+                        <span className="font-black text-sm tracking-tighter text-brand-purple">{((p.preco || 0) * (p.quantidade || 0)).toLocaleString()} <span className="text-[9px] text-slate-400">MT</span></span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-3 justify-end pt-2">
+                      <button onClick={() => openModal(p)} className="flex-1 py-3 bg-[#0B1120] text-white rounded-xl hover:bg-brand-cyan hover:text-[#0B1120] transition-all font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">Editar</button>
+                      <button onClick={() => handleDelete(p.id)} className="py-3 px-5 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">Eliminar</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table Layout (hidden md:block) */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left min-w-[900px]">
                   <thead className="bg-slate-50 border-b border-black/5 text-[10px] font-black uppercase tracking-widest text-[#0B1120]/30">
                     <tr>
@@ -431,40 +550,41 @@ export const AdminPage = () => {
                   </thead>
                   <tbody className="divide-y divide-black/5">
                     {filteredProdutos.map(p => (
-                    <tr key={p.id} className="group hover:bg-slate-50 transition-colors">
-                      <td className="p-8 lg:p-10 flex items-center gap-6">
-                        <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl bg-white overflow-hidden border border-black/5 flex-shrink-0 p-1">
-                          {p.foto_url ? <img src={p.foto_url} className="w-full h-full object-cover rounded-xl" /> : <div className="w-full h-full flex items-center justify-center text-[#0B1120]/10 bg-slate-50 rounded-xl text-3xl">📦</div>}
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-black text-[#0B1120] uppercase tracking-tighter text-lg lg:text-xl group-hover:text-brand-purple transition-colors leading-none mb-1">{p?.nome || 'Sem Nome'}</span>
-                          <span className="text-[10px] font-bold text-brand-purple/40 uppercase tracking-widest">REG: {p?.id ? String(p.id).slice(0, 8) : '---'}</span>
-                        </div>
-                      </td>
-                      <td className="p-8 lg:p-10">
-                        <span className="px-5 py-2 bg-white border border-slate-100 rounded-full text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:border-brand-purple/20 transition-all">{p.categoria}</span>
-                      </td>
-                      <td className="p-8 lg:p-10 font-black text-xl lg:text-2xl tracking-tighter text-[#0B1120]">
-                        {p.preco.toLocaleString()} <span className="text-xs text-slate-300 font-bold ml-1">Kz/MT</span>
-                      </td>
-                      <td className="p-8 lg:p-10">
-                        <div className="flex items-center gap-3">
-                           <div className={`w-3 h-3 rounded-full ${p.quantidade < 5 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
-                           <span className={`text-[10px] font-black uppercase tracking-widest ${p.quantidade < 5 ? 'text-red-500' : 'text-slate-400'}`}>
-                             {p.quantidade} Unidades
-                           </span>
-                        </div>
-                      </td>
-                      <td className="p-8 lg:p-10 text-right">
-                        <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
-                          <button onClick={() => openModal(p)} className="p-4 bg-[#0B1120] text-white rounded-xl hover:bg-brand-cyan hover:text-[#0B1120] transition-all shadow-lg active:scale-90"><Edit3 size={18} /></button>
-                          <button onClick={() => handleDelete(p.id)} className="p-4 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-lg active:scale-90"><Trash2 size={18} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      <tr key={p.id} className="group hover:bg-slate-50 transition-colors">
+                        <td className="p-8 lg:p-10 flex items-center gap-6">
+                          <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl bg-white overflow-hidden border border-black/5 flex-shrink-0 p-1">
+                            {p.foto_url ? <img src={p.foto_url} className="w-full h-full object-cover rounded-xl" /> : <div className="w-full h-full flex items-center justify-center text-[#0B1120]/10 bg-slate-50 rounded-xl text-3xl">📦</div>}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-black text-[#0B1120] uppercase tracking-tighter text-lg lg:text-xl group-hover:text-brand-purple transition-colors leading-none mb-1">{p?.nome || 'Sem Nome'}</span>
+                            <span className="text-[10px] font-bold text-brand-purple/40 uppercase tracking-widest">REG: {p?.id ? String(p.id).slice(0, 8) : '---'}</span>
+                          </div>
+                        </td>
+                        <td className="p-8 lg:p-10">
+                          <span className="px-5 py-2 bg-white border border-slate-100 rounded-full text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:border-brand-purple/20 transition-all">{p.categoria}</span>
+                        </td>
+                        <td className="p-8 lg:p-10 font-black text-xl lg:text-2xl tracking-tighter text-[#0B1120]">
+                          {p.preco.toLocaleString()} <span className="text-xs text-slate-300 font-bold ml-1">MT</span>
+                        </td>
+                        <td className="p-8 lg:p-10">
+                          <div className="flex items-center gap-3">
+                             <div className={`w-3 h-3 rounded-full ${p.quantidade < 5 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+                             <span className={`text-[10px] font-black uppercase tracking-widest ${p.quantidade < 5 ? 'text-red-500' : 'text-slate-400'}`}>
+                               {p.quantidade} Unidades
+                             </span>
+                          </div>
+                        </td>
+                        <td className="p-8 lg:p-10 text-right">
+                          <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                            <button onClick={() => openModal(p)} className="p-4 bg-[#0B1120] text-white rounded-xl hover:bg-brand-cyan hover:text-[#0B1120] transition-all shadow-lg active:scale-90"><Edit3 size={18} /></button>
+                            <button onClick={() => handleDelete(p.id)} className="p-4 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-lg active:scale-90"><Trash2 size={18} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               {filteredProdutos.length === 0 && (
                 <div className="py-40 text-center">
                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-200">
@@ -475,7 +595,6 @@ export const AdminPage = () => {
               )}
             </div>
           </div>
-        </div>
         ) : activeTab === 'clients' ? (
           <div className="space-y-10">
             {/* Filter Bar */}
@@ -574,30 +693,156 @@ export const AdminPage = () => {
             </div>
           )}
         </div>
+      ) : activeTab === 'orders' ? (
+        <div className="space-y-10 font-sans">
+          {/* Header Indicator */}
+          <div className="flex flex-col lg:flex-row gap-6 items-center justify-between bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm font-sans">
+             <div className="flex items-center gap-4 w-full lg:w-auto font-sans">
+                <div className="w-12 h-12 bg-brand-cyan/10 rounded-2xl flex items-center justify-center text-brand-cyan">
+                   <FileText size={24} />
+                </div>
+                <div className="font-sans">
+                  <h3 className="text-sm font-black uppercase text-[#0B1120] tracking-widest leading-none mb-1 font-sans">Pedidos & Encomendas Realizadas</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-sans">{encomendas.length} Registos no Sistema</p>
+                </div>
+             </div>
+             <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-right font-sans">
+                Gestão de Documentos & Transferências
+             </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-sans">
+            {encomendas.map((order) => (
+              <div key={order.id} className="bg-white rounded-[40px] border border-slate-100 p-8 flex flex-col gap-6 hover:shadow-2xl transition-all relative overflow-hidden group font-sans">
+                <div className="flex justify-between items-start font-sans">
+                  <div className="font-sans">
+                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block mb-1 font-sans">ID da Encomenda</span>
+                    <span className="text-xs font-black text-[#0B1120] uppercase font-sans">#{order.id ? String(order.id).slice(0, 8) : '---'}</span>
+                  </div>
+                  <div className="font-sans">
+                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest font-sans ${
+                      order.status === 'Confirmado' || order.status === 'Aprovado' || order.status === 'Entregue'
+                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                        : order.status === 'Cancelado' || order.status === 'Rejeitado'
+                        ? 'bg-red-50 text-red-600 border border-red-100 font-sans'
+                        : 'bg-amber-50 text-amber-600 border border-amber-100 animate-pulse'
+                    }`}>
+                      {order.status || 'Pendente'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-50 pt-4 space-y-3 font-sans">
+                  <div className="font-sans">
+                    <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest block mb-1 font-sans">Cliente / Contacto</span>
+                    <span className="text-xs font-black text-[#0B1120] block font-sans">{order.user_id || 'Cliente Registado'}</span>
+                  </div>
+                  <div className="font-sans">
+                    <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest block mb-1 font-sans">Método de Liquidação</span>
+                    <span className="text-xs font-black text-brand-purple uppercase flex items-center gap-1.5 font-sans">
+                      <span className={`w-1.5 h-1.5 rounded-full ${order.metodo_pagamento === 'Dinheiro' ? 'bg-emerald-500' : 'bg-brand-cyan'}`} />
+                      {order.metodo_pagamento === 'Dinheiro' ? 'Dinheiro (Na Entrega)' : order.metodo_pagamento || 'M-Pesa'}
+                    </span>
+                  </div>
+                  <div className="font-sans">
+                    <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest block mb-1 font-sans">Valor do Pedido</span>
+                    <span className="text-xl font-black text-[#0B1120] tracking-tighter font-sans">{(order.total || 0).toLocaleString()} <span className="text-[10px] text-slate-300">MT</span></span>
+                  </div>
+                </div>
+
+                {/* Purchased Items List */}
+                <div className="border-t border-slate-50 pt-4 flex-1 font-sans">
+                  <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest block mb-3 font-sans font-sans">Produtos Solicitados</span>
+                  <div className="space-y-2 max-h-32 overflow-y-auto scrollbar-hide py-1 font-sans">
+                    {Array.isArray(order.items) && order.items.map((item: any, i: number) => (
+                      <div key={i} className="flex justify-between items-center text-xs bg-slate-50/50 p-2 rounded-xl border border-slate-100/50 font-sans">
+                        <span className="font-bold text-[#0B1120] truncate max-w-[150px] font-sans">{item.nome}</span>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans font-sans">x{item.cartQuantity || 1}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Receipt Confirmation Photo */}
+                {order.metodo_pagamento !== 'Dinheiro' && order.comprovante_url && (
+                  <div className="border-t border-slate-50 pt-4 font-sans">
+                    <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest block mb-2 font-sans">Comprovativo de Pagamento</span>
+                    <div className="w-full h-32 bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 p-1 group relative font-sans">
+                      {order.comprovante_url.startsWith('data:') || order.comprovante_url.startsWith('http') || order.comprovante_url.startsWith('/') ? (
+                        <img 
+                          src={order.comprovante_url} 
+                          alt="Comprovativo" 
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover rounded-xl cursor-pointer hover:scale-105 transition-transform" 
+                          onClick={() => {
+                            const win = window.open();
+                            if (win) win.document.write(`<img src="${order.comprovante_url}" style="max-width:100%; max-height:100vh; display:block; margin:auto;"/>`);
+                          }} 
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs font-black text-slate-300 font-sans">Sem Imagem</div>
+                      )}
+                      <div className="absolute inset-0 bg-[#0B1120]/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none rounded-xl font-sans">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-white font-sans">Clique para Ver Ampliado</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Confirm / Deny control buttons */}
+                {order.status !== 'Confirmado' && order.status !== 'Rejeitado' && order.status !== 'Cancelado' && (
+                  <div className="border-t border-slate-50 pt-4 flex gap-3 mt-auto relative z-20 font-sans">
+                    <button
+                      onClick={() => handleUpdateOrderStatus(order.id, 'Confirmado')}
+                      className="flex-1 py-3 bg-[#0B1120] text-white hover:bg-emerald-500 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 font-sans"
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      onClick={() => handleUpdateOrderStatus(order.id, 'Rejeitado')}
+                      className="py-3 px-4 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 font-sans"
+                    >
+                      Rejeitar
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {encomendas.length === 0 && (
+            <div className="py-20 text-center bg-white rounded-[40px] border border-slate-100 font-sans">
+              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-200">
+                <FileText size={32} />
+              </div>
+              <p className="text-slate-300 font-black uppercase tracking-[0.5em] text-[10px] font-sans">Não há registo de encomendas no sistema</p>
+            </div>
+          )}
+        </div>
       ) : (
           <div className="space-y-12 pb-20">
              {/* Key Metrics Bento */}
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-               <div className="bg-[#0B1120] p-10 lg:p-12 rounded-[40px] lg:rounded-[48px] text-white overflow-hidden relative group">
+               <div className="bg-[#0B1120] p-6 sm:p-10 lg:p-12 rounded-3xl sm:rounded-[40px] lg:rounded-[48px] text-white overflow-hidden relative group">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-brand-cyan/10 rounded-full translate-x-16 -translate-y-16 group-hover:scale-150 transition-transform" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-10">Valorização de Ativos</p>
-                  <div className="text-3xl lg:text-4xl font-black mb-10 text-brand-cyan tracking-tighter">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-8 sm:mb-10">Valor Total em Stock</p>
+                  <div className="text-3xl lg:text-4xl font-black mb-8 sm:mb-10 text-brand-cyan tracking-tighter">
                      {stats.totalValue.toLocaleString()} <span className="text-xs text-brand-cyan/40">MZN/MT</span>
                   </div>
                   <BarChart3 className="text-white/5 absolute bottom-8 right-8" size={80} />
                </div>
                
-               <div className="bg-white p-10 lg:p-12 rounded-[40px] lg:rounded-[48px] border border-slate-100 overflow-hidden relative group">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-10">Urgência de Suprimentos</p>
-                  <div className="text-5xl lg:text-6xl font-black mb-10 text-red-500 tracking-tighter">
-                     {stats.lowStock} <span className="text-xs text-slate-200 uppercase tracking-widest ml-2">Críticos</span>
+               <div className="bg-white p-6 sm:p-10 lg:p-12 rounded-3xl sm:rounded-[40px] lg:rounded-[48px] border border-slate-100 overflow-hidden relative group">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-8 sm:mb-10">Avisos de Stock Baixo</p>
+                  <div className="text-4xl sm:text-5xl lg:text-6xl font-black mb-8 sm:mb-10 text-red-500 tracking-tighter">
+                     {stats.lowStock} <span className="text-xs text-slate-200 uppercase tracking-widest ml-2">Itens</span>
                   </div>
                   <Package className="text-slate-50 absolute bottom-8 right-8" size={80} />
                </div>
 
-               <div className="bg-white p-10 lg:p-12 rounded-[40px] lg:rounded-[48px] border border-slate-100 overflow-hidden relative group">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-10">Parceiros Estratégicos</p>
-                  <div className="text-5xl lg:text-6xl font-black mb-10 text-brand-purple tracking-tighter">
+               <div className="bg-white p-6 sm:p-10 lg:p-12 rounded-3xl sm:rounded-[40px] lg:rounded-[48px] border border-slate-100 overflow-hidden relative group">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-8 sm:mb-10">Total de Clientes Ativos</p>
+                  <div className="text-4xl sm:text-5xl lg:text-6xl font-black mb-8 sm:mb-10 text-brand-purple tracking-tighter">
                      {stats.clients} <span className="text-xs text-slate-200 uppercase tracking-widest ml-2">Validados</span>
                   </div>
                   <Users className="text-slate-50 absolute bottom-8 right-8" size={80} />
@@ -606,9 +851,9 @@ export const AdminPage = () => {
 
              {/* Intelligence Mapping */}
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-sm relative overflow-hidden">
-                   <div className="flex items-center justify-between mb-10">
-                      <h3 className="text-xs font-black uppercase tracking-widest text-[#0B1120]">Densidade de Ativos por Sector</h3>
+                <div className="bg-white p-6 sm:p-10 rounded-3xl sm:rounded-[40px] border border-slate-100 shadow-sm relative overflow-hidden">
+                   <div className="flex items-center justify-between mb-8 sm:mb-10">
+                      <h3 className="text-xs font-black uppercase tracking-widest text-[#0B1120]">Produtos por Categoria</h3>
                       <div className="w-8 h-8 rounded-full bg-brand-cyan/10 flex items-center justify-center text-brand-cyan">
                          <TrendingUp size={14} />
                       </div>
@@ -635,13 +880,13 @@ export const AdminPage = () => {
                             <Bar dataKey="valor" fill="#00D2FF" radius={[12, 12, 12, 12]} barSize={32} />
                          </BarChart>
                       </ResponsiveContainer>
-                   </div>
-                </div>
+                    </div>
+                 </div>
 
-                <div className="bg-[#0B1120] p-10 rounded-[40px] text-white relative overflow-hidden">
+                 <div className="bg-[#0B1120] p-6 sm:p-10 rounded-3xl sm:rounded-[40px] text-white relative overflow-hidden">
                    <div className="absolute top-0 right-0 w-40 h-40 bg-brand-purple/5 rounded-full blur-[40px]"></div>
-                   <div className="flex items-center justify-between mb-10">
-                      <h3 className="text-xs font-black uppercase tracking-widest text-white/40">Volume Físico de Stock (Unidades)</h3>
+                   <div className="flex items-center justify-between mb-8 sm:mb-10">
+                      <h3 className="text-xs font-black uppercase tracking-widest text-white/40">Quantidade Total de Itens</h3>
                       <div className="flex gap-2">
                          <div className="w-2 h-2 rounded-full bg-brand-cyan animate-pulse"></div>
                       </div>
@@ -656,9 +901,9 @@ export const AdminPage = () => {
                                </linearGradient>
                             </defs>
                             <XAxis dataKey="name" 
-                              axisLine={false} 
-                              tickLine={false} 
-                              tick={{ fontSize: 9, fontWeight: 900, fill: 'rgba(255,255,255,0.2)' }}
+                               axisLine={false} 
+                               tickLine={false} 
+                               tick={{ fontSize: 9, fontWeight: 900, fill: 'rgba(255,255,255,0.2)' }}
                             />
                             <Tooltip 
                                contentStyle={{ backgroundColor: '#1E293B', borderRadius: '24px', border: 'none', color: '#fff', fontSize: '10px', fontWeight: '900' }}
@@ -671,15 +916,15 @@ export const AdminPage = () => {
                 </div>
              </div>
 
-             <div className="bg-white rounded-[40px] p-10 lg:p-16 border border-slate-50 flex flex-col md:flex-row items-center gap-12 relative group shadow-2xl shadow-[#0B1120]/5">
-                <div className="w-28 h-28 bg-[#0B1120] rounded-[36px] flex items-center justify-center text-brand-cyan shrink-0 border-4 border-slate-50 group-hover:rotate-6 transition-transform">
-                   <FileText size={48} />
+             <div className="bg-white rounded-3xl sm:rounded-[40px] p-6 sm:p-10 lg:p-16 border border-slate-100 flex flex-col md:flex-row items-center gap-12 relative group shadow-2xl shadow-[#0B1120]/5">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 bg-[#0B1120] rounded-[30px] sm:rounded-[36px] flex items-center justify-center text-brand-cyan shrink-0 border-4 border-slate-50 group-hover:rotate-6 transition-transform">
+                   <FileText size={44} className="sm:w-12 sm:h-12" />
                 </div>
                 <div className="flex-1 text-center md:text-left">
-                   <h3 className="text-3xl font-black text-[#0B1120] uppercase tracking-tighter mb-4">Exportar Arquivo de Inteligência</h3>
-                   <p className="text-sm font-medium text-slate-400 leading-relaxed mb-8 max-w-2xl">O sistema compilou todos os dados de logística, CRM e performance financeira. Pressione o comando abaixo para extrair o dossiê oficial em PDF de alta qualidade.</p>
-                   <button onClick={exportPDF} className="bg-[#0B1120] text-white px-10 py-5 rounded-[20px] font-black text-xs uppercase tracking-widest hover:bg-brand-cyan hover:text-[#0B1120] transition-all flex items-center gap-4 mx-auto md:mx-0 shadow-xl active:scale-95 shadow-[#0B1120]/20">
-                      <Download size={20} /> Descarregar Protocolo executivo (PDF)
+                   <h3 className="text-2xl sm:text-3xl font-black text-[#0B1120] uppercase tracking-tighter mb-4">Exportar Relatório em PDF</h3>
+                   <p className="text-xs sm:text-sm font-medium text-slate-400 leading-relaxed mb-6 sm:mb-8 max-w-2xl">O sistema reuniu todos os detalhes do stock e clientes. Pressione o botão abaixo para descarregar o relatório oficial em PDF pronto para ver ou imprimir.</p>
+                   <button onClick={exportPDF} className="bg-[#0B1120] text-white px-8 sm:px-10 py-4 sm:py-5 rounded-2xl sm:rounded-[20px] font-black text-xs uppercase tracking-widest hover:bg-brand-cyan hover:text-[#0B1120] transition-all flex items-center justify-center sm:justify-start gap-4 mx-auto md:mx-0 shadow-xl active:scale-95 shadow-[#0B1120]/20 w-full sm:w-auto">
+                      <Download size={20} /> Descarregar Relatório Completo (PDF)
                    </button>
                 </div>
              </div>
@@ -743,16 +988,16 @@ export const AdminPage = () => {
                       <p className="text-[10px] font-black uppercase tracking-widest">{successMsg}</p>
                    </div>
                 )}
-                <form id="productForm" onSubmit={handleSubmit} className="space-y-8 lg:space-y-10 relative">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-12">
+                <form id="productForm" onSubmit={handleSubmit} className="space-y-6 lg:space-y-10 relative">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-12">
                     <div className="md:col-span-2">
-                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-4">Designação Comercial do Equipamento</label>
-                       <input value={nome} onChange={e => setNome(e.target.value)} required placeholder="Ex: Transformador..." className="w-full px-6 lg:px-10 py-5 lg:py-6 bg-slate-50 border border-slate-100 rounded-2xl lg:rounded-3xl text-lg lg:text-2xl font-black uppercase tracking-tighter outline-none focus:border-brand-cyan focus:ring-8 focus:ring-brand-cyan/5 transition-all text-[#0B1120]" />
+                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 lg:mb-4 ml-4">Designação Comercial do Equipamento</label>
+                       <input value={nome} onChange={e => setNome(e.target.value)} required placeholder="Ex: Transformador..." className="w-full px-4 sm:px-6 lg:px-10 py-3 sm:py-5 lg:py-6 bg-slate-50 border border-slate-100 rounded-xl sm:rounded-2xl lg:rounded-3xl text-sm sm:text-lg lg:text-2xl font-black uppercase tracking-tighter outline-none focus:border-brand-cyan focus:ring-8 focus:ring-brand-cyan/5 transition-all text-[#0B1120]" />
                     </div>
                     
                     <div>
-                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-4">Sector Técnico</label>
-                       <select value={categoria} onChange={e => setCategory(e.target.value as any)} className="w-full px-6 lg:px-10 py-5 lg:py-6 bg-slate-50 border border-slate-100 rounded-2xl lg:rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] outline-none focus:border-brand-cyan text-[#0B1120]">
+                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 lg:mb-4 ml-4">Sector Técnico</label>
+                       <select value={categoria} onChange={e => setCategory(e.target.value as any)} className="w-full px-4 sm:px-6 lg:px-10 py-3 sm:py-5 lg:py-6 bg-slate-50 border border-slate-100 rounded-xl sm:rounded-2xl lg:rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] outline-none focus:border-brand-cyan text-[#0B1120]">
                          <option>Materiais</option>
                          <option>Peças</option>
                          <option>Serviços</option>
@@ -761,28 +1006,71 @@ export const AdminPage = () => {
                     </div>
                     
                     <div>
-                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-4">Preço (MZN)</label>
-                       <input type="number" step="0.01" value={preco} onChange={e => setPreco(e.target.value)} required placeholder="0.00" className="w-full px-6 lg:px-10 py-5 lg:py-6 bg-slate-50 border border-slate-100 rounded-2xl lg:rounded-3xl text-xl lg:text-2xl font-black tracking-tighter outline-none text-[#0B1120]" />
+                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 lg:mb-4 ml-4">Preço (MZN)</label>
+                       <input type="number" step="0.01" value={preco} onChange={e => setPreco(e.target.value)} required placeholder="0.00" className="w-full px-4 sm:px-6 lg:px-10 py-3 sm:py-5 lg:py-6 bg-slate-50 border border-slate-100 rounded-xl sm:rounded-2xl lg:rounded-3xl text-sm sm:text-xl lg:text-2xl font-black tracking-tighter outline-none text-[#0B1120]" />
                     </div>
                     
                     <div>
-                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-4">Stock</label>
-                       <input type="number" value={quantidade} onChange={e => setQuantidade(e.target.value)} required placeholder="0" className="w-full px-6 lg:px-10 py-5 lg:py-6 bg-slate-50 border border-slate-100 rounded-2xl lg:rounded-3xl text-xl lg:text-2xl font-black tracking-tighter outline-none text-[#0B1120]" />
+                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 lg:mb-4 ml-4">Stock</label>
+                       <input type="number" value={quantidade} onChange={e => setQuantidade(e.target.value)} required placeholder="0" className="w-full px-4 sm:px-6 lg:px-10 py-3 sm:py-5 lg:py-6 bg-slate-50 border border-slate-100 rounded-xl sm:rounded-2xl lg:rounded-3xl text-sm sm:text-xl lg:text-2xl font-black tracking-tighter outline-none text-[#0B1120]" />
                     </div>
 
-                    <div className="md:col-span-2 flex flex-col gap-4">
-                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-4">Imagem (URL)</label>
-                       <div className="flex gap-4 items-center">
-                         <input value={fotoUrl} onChange={e => setFotoUrl(e.target.value)} placeholder="https://..." className="flex-1 px-6 lg:px-10 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold text-[#0B1120]" />
-                         <div className="w-16 h-16 bg-slate-50 rounded-2xl border flex items-center justify-center p-1 shrink-0 overflow-hidden">
-                           {fotoUrl ? <img src={fotoUrl} className="w-full h-full object-cover rounded-xl" /> : <Camera size={20} className="text-slate-200" />}
+                     <div className="md:col-span-2 flex flex-col gap-3 font-sans">
+                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-4">Imagem do Ativo (Upload Local ou Link URL)</label>
+                       
+                       <input 
+                         type="file" 
+                         ref={fileInputRef} 
+                         onChange={handleProductUpload} 
+                         accept="image/*" 
+                         className="hidden" 
+                       />
+
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                         {/* Upload Dropzone option */}
+                         <div 
+                           onClick={() => fileInputRef.current?.click()}
+                           className={`border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all ${
+                             uploadProgress ? 'border-brand-cyan/40 bg-slate-50' : 'border-slate-200 hover:border-brand-cyan bg-slate-50/50 hover:bg-brand-cyan/5'
+                           }`}
+                         >
+                           {uploadProgress ? (
+                             <div className="w-8 h-8 border-2 border-brand-cyan border-t-transparent rounded-full animate-spin" />
+                           ) : (
+                             <>
+                               <Camera size={24} className="text-slate-400" />
+                               <div className="text-center">
+                                 <span className="block text-[10px] font-black uppercase tracking-widest text-[#0B1120]">Upload de Imagem</span>
+                                 <span className="block text-[8px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Do meu dispositivo</span>
+                               </div>
+                             </>
+                           )}
+                         </div>
+
+                         {/* URL Input option as manual backup */}
+                         <div className="flex flex-col justify-between bg-slate-50/50 border border-slate-100 p-6 rounded-2xl">
+                           <div>
+                             <span className="block text-[10px] font-black uppercase tracking-widest text-[#0B1120] mb-2">Ou digite o link URL da foto:</span>
+                             <input 
+                               value={fotoUrl} 
+                               onChange={e => setFotoUrl(e.target.value)} 
+                               placeholder="https://..." 
+                               className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-[10px] font-bold text-[#0B1120] outline-none focus:border-brand-cyan" 
+                             />
+                           </div>
+                           <div className="flex items-center gap-3 mt-4">
+                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest font-sans">Prévia:</span>
+                             <div className="w-10 h-10 bg-white rounded-lg border flex items-center justify-center overflow-hidden p-0.5 shrink-0">
+                               {fotoUrl ? <img src={fotoUrl} className="w-full h-full object-cover rounded-md" /> : <div className="text-xs">📦</div>}
+                             </div>
+                           </div>
                          </div>
                        </div>
                     </div>
 
                     <div className="md:col-span-2">
-                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-4">Descrição Técnica</label>
-                       <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3} className="w-full px-6 lg:px-10 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium outline-none resize-none text-[#0B1120]" />
+                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 lg:mb-4 ml-4">Descrição Técnica</label>
+                       <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3} className="w-full px-4 sm:px-6 lg:px-10 py-3 sm:py-5 bg-slate-50 border border-slate-100 rounded-xl sm:rounded-2xl text-xs font-medium outline-none resize-none text-[#0B1120]" />
                     </div>
                   </div>
                   

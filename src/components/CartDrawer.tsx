@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ShoppingBag, Plus, Minus, Trash2, ArrowRight } from 'lucide-react';
+import { X, ShoppingBag, Plus, Minus, Trash2, ArrowRight, Smartphone, Upload, CheckCircle2, ChevronLeft, CreditCard, Coins } from 'lucide-react';
 import { CartItem } from '../types';
+import { useState, useRef } from 'react';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -8,11 +9,59 @@ interface CartDrawerProps {
   items: CartItem[];
   onUpdateQuantity: (id: string, delta: number) => void;
   onRemove: (id: string) => void;
-  onCheckout: () => Promise<void>;
+  onCheckout: (paymentData: { method: 'M-Pesa' | 'e-Mola' | 'Dinheiro', receipt: string }) => Promise<void>;
+  isProcessing?: boolean;
 }
 
-export const CartDrawer = ({ isOpen, onClose, items, onUpdateQuantity, onRemove, onCheckout }: CartDrawerProps) => {
+type CheckoutStep = 'cart' | 'method' | 'receipt';
+
+export const CartDrawer = ({ 
+  isOpen, 
+  onClose, 
+  items, 
+  onUpdateQuantity, 
+  onRemove, 
+  onCheckout,
+  isProcessing = false 
+}: CartDrawerProps) => {
+  const [step, setStep] = useState<CheckoutStep>('cart');
+  const [method, setMethod] = useState<'M-Pesa' | 'e-Mola' | 'Dinheiro' | null>(null);
+  const [receiptBase64, setReceiptBase64] = useState<string | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const total = items.reduce((sum, item) => sum + item.preco * item.cartQuantity, 0);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadLoading(true);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setReceiptBase64(reader.result as string);
+      setUploadLoading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFinalCheckout = () => {
+    if (!method) return;
+    onCheckout({ method, receipt: receiptBase64 || 'PAGO_NA_ENTREGA' });
+  };
+
+  const resetAndClose = () => {
+    setStep('cart');
+    setMethod(null);
+    setReceiptBase64(null);
+    onClose();
+  };
+
+  const PAYMENT_NUMBERS = {
+    'M-Pesa': '+258 84 482 1126',
+    'e-Mola': '+258 86 482 1126',
+    'Dinheiro': 'PAGO_NA_ENTREGA'
+  };
 
   return (
     <AnimatePresence>
@@ -22,7 +71,7 @@ export const CartDrawer = ({ isOpen, onClose, items, onUpdateQuantity, onRemove,
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={resetAndClose}
             className="fixed inset-0 bg-ink/60 backdrop-blur-md z-[60]"
           />
           <motion.div 
@@ -35,16 +84,28 @@ export const CartDrawer = ({ isOpen, onClose, items, onUpdateQuantity, onRemove,
             <div className="p-10 lg:p-14 flex items-center justify-between border-b border-slate-50 relative overflow-hidden bg-slate-50/50">
               <div className="absolute top-0 right-0 w-32 h-32 bg-brand-cyan/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
               <div className="flex items-center gap-6 relative z-10">
+                {step !== 'cart' && (
+                  <button 
+                    onClick={() => setStep(step === 'receipt' ? 'method' : 'cart')}
+                    className="p-3 bg-white text-slate-400 hover:text-[#0B1120] rounded-xl border border-slate-100 transition-all mr-2"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                )}
                 <div className="w-14 h-14 bg-[#0B1120] rounded-2xl flex items-center justify-center text-brand-cyan shadow-xl">
-                  <ShoppingBag size={28} />
+                  {step === 'cart' ? <ShoppingBag size={28} /> : <CreditCard size={28} />}
                 </div>
                 <div>
-                  <h2 className="text-4xl font-black text-[#0B1120] uppercase tracking-tighter leading-none mb-2">Requisição</h2>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Inventário de Activos • Protocolo E&S</p>
+                  <h2 className="text-4xl font-black text-[#0B1120] uppercase tracking-tighter leading-none mb-2">
+                    {step === 'cart' ? 'Requisição' : step === 'method' ? 'Pagamento' : 'Confirmação'}
+                  </h2>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                    {step === 'cart' ? 'Inventário de Activos • Protocolo E&S' : 'Processamento Seguro M-Pesa / e-Mola'}
+                  </p>
                 </div>
               </div>
               <button 
-                onClick={onClose}
+                onClick={resetAndClose}
                 className="p-4 bg-white text-slate-300 hover:text-[#0B1120] rounded-full transition-all border border-slate-100 active:scale-90"
               >
                 <X size={24} />
@@ -52,85 +113,205 @@ export const CartDrawer = ({ isOpen, onClose, items, onUpdateQuantity, onRemove,
             </div>
 
             <div className="flex-1 overflow-y-auto px-10 lg:px-14 py-12 space-y-8 scrollbar-hide">
-              {items.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center">
-                  <div className="w-32 h-32 bg-slate-50 rounded-full flex items-center justify-center mb-10 border border-slate-100">
-                    <ShoppingBag size={48} className="text-slate-200" />
+              {step === 'cart' ? (
+                items.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center">
+                    <div className="w-32 h-32 bg-slate-50 rounded-full flex items-center justify-center mb-10 border border-slate-100">
+                      <ShoppingBag size={48} className="text-slate-200" />
+                    </div>
+                    <h3 className="text-2xl font-black text-[#0B1120] uppercase tracking-tighter mb-4">Lista Vazia</h3>
+                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] max-w-xs leading-relaxed">Não foram seleccionados activos para este protocolo de requisição.</p>
                   </div>
-                  <h3 className="text-2xl font-black text-[#0B1120] uppercase tracking-tighter mb-4">Lista Vazia</h3>
-                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] max-w-xs leading-relaxed">Não foram seleccionados activos para este protocolo de requisição.</p>
+                ) : (
+                  items.map((item) => (
+                    <div key={item.id} className="flex gap-8 group bg-white border border-slate-50 p-6 rounded-[32px] hover:border-brand-cyan/20 hover:shadow-xl transition-all">
+                      <div className="w-28 h-28 bg-slate-50 rounded-[24px] overflow-hidden border border-slate-100 flex-shrink-0 relative">
+                        {item.foto_url ? (
+                          <img src={item.foto_url} alt={item.nome} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-200 bg-slate-100"><ShoppingBag size={32} /></div>
+                        )}
+                      </div>
+                      <div className="flex-1 flex flex-col justify-between py-1">
+                        <div>
+                          <h3 className="text-xl font-black text-[#0B1120] tracking-tighter leading-tight mb-2 group-hover:text-brand-cyan transition-colors line-clamp-1">{item.nome}</h3>
+                          <span className="px-3 py-1 bg-slate-50 rounded-full text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.categoria}</span>
+                        </div>
+                        <div className="flex items-end justify-between mt-6">
+                          <div className="flex items-center bg-slate-50 rounded-full p-1.5 border border-slate-100">
+                            <button 
+                              onClick={() => onUpdateQuantity(item.id, -1)}
+                              className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-[#0B1120] shadow-sm hover:text-brand-purple transition-all"
+                            >
+                              <Minus size={14} />
+                            </button>
+                            <span className="w-10 text-center text-sm font-black text-[#0B1120]">{item.cartQuantity}</span>
+                            <button 
+                              onClick={() => onUpdateQuantity(item.id, 1)}
+                              className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-[#0B1120] shadow-sm hover:text-brand-cyan transition-all"
+                            >
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                          <div className="flex flex-col items-end">
+                             <button 
+                              onClick={() => onRemove(item.id)}
+                              className="p-2 text-slate-200 hover:text-red-500 transition-colors mb-2"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                            <span className="font-black text-xl tracking-tighter text-[#0B1120]">
+                              { (item.preco * item.cartQuantity).toLocaleString() } <span className="text-[10px] text-slate-300">MT</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )
+              ) : step === 'method' ? (
+                <div className="space-y-10">
+                  <div className="bg-slate-50 p-10 rounded-[40px] border border-slate-100 mb-10">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Total a Liquidar</p>
+                    <p className="text-6xl font-black text-[#0B1120] tracking-tighter">{total.toLocaleString()} <span className="text-2xl text-slate-300">MT</span></p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-6">
+                    {(['M-Pesa', 'e-Mola', 'Dinheiro'] as const).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setMethod(m)}
+                        className={`p-8 rounded-[32px] border-2 transition-all flex items-center gap-8 ${
+                          method === m 
+                            ? 'border-brand-cyan bg-brand-cyan/5' 
+                            : 'border-slate-100 hover:border-slate-200 bg-white'
+                        }`}
+                      >
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
+                          m === 'M-Pesa' ? 'bg-red-50 text-red-600' : m === 'e-Mola' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
+                        }`}>
+                          {m === 'Dinheiro' ? <Coins size={32} /> : <Smartphone size={32} />}
+                        </div>
+                        <div className="text-left">
+                          <h4 className="text-xl font-black text-[#0B1120] uppercase tracking-tight">
+                            {m === 'Dinheiro' ? 'Dinheiro (Na Entrega)' : m}
+                          </h4>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            {m === 'Dinheiro' ? 'Pagar no acto de delivery' : 'Transferência Directa MZN'}
+                          </p>
+                        </div>
+                        {method === m && <div className="ml-auto w-8 h-8 rounded-full bg-brand-cyan flex items-center justify-center text-white"><CheckCircle2 size={16} /></div>}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                items.map((item) => (
-                  <div key={item.id} className="flex gap-8 group bg-white border border-slate-50 p-6 rounded-[32px] hover:border-brand-cyan/20 hover:shadow-xl transition-all">
-                    <div className="w-28 h-28 bg-slate-50 rounded-[24px] overflow-hidden border border-slate-100 flex-shrink-0 relative">
-                      {item.foto_url ? (
-                        <img src={item.foto_url} alt={item.nome} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                <div className="space-y-10">
+                  <div className="bg-[#0B1120] p-12 rounded-[40px] text-white overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-brand-cyan/10 rounded-full blur-[100px]" />
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 relative z-10">Transferir para o número:</p>
+                    <h3 className="text-4xl lg:text-5xl font-black tracking-tighter mb-4 relative z-10">{PAYMENT_NUMBERS[method!]}</h3>
+                    <p className="text-[10px] font-black text-brand-cyan uppercase tracking-widest relative z-10 flex items-center gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-brand-cyan animate-pulse" />
+                      Titular: HELENA JOÃO GARIFE (E&S)
+                    </p>
+                  </div>
+
+                  <div className="space-y-6">
+                    <p className="text-sm font-black text-[#0B1120] uppercase tracking-tighter">Comprovativo de Pagamento</p>
+                    <div 
+                      onClick={() => !uploadLoading && fileInputRef.current?.click()}
+                      className={`w-full aspect-video rounded-[32px] border-2 border-dashed flex flex-col items-center justify-center gap-6 cursor-pointer transition-all ${
+                        receiptBase64 ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-brand-cyan bg-slate-50 hover:bg-brand-cyan/5'
+                      }`}
+                    >
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileChange} 
+                        accept="image/*" 
+                        className="hidden" 
+                      />
+                      
+                      {receiptBase64 ? (
+                        <div className="w-full h-full p-4 relative group">
+                          <img src={receiptBase64} className="w-full h-full object-contain rounded-2xl" />
+                          <div className="absolute inset-4 bg-emerald-500/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all rounded-2xl flex items-center justify-center">
+                            <p className="text-white font-black text-[10px] uppercase tracking-widest">Alterar Imagem</p>
+                          </div>
+                        </div>
+                      ) : uploadLoading ? (
+                        <div className="animate-spin text-brand-cyan"><Upload size={40} /></div>
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-200 bg-slate-100"><ShoppingBag size={32} /></div>
+                        <>
+                          <div className="w-20 h-20 bg-white rounded-3xl shadow-xl flex items-center justify-center text-slate-300">
+                            <Upload size={32} />
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs font-black text-[#0B1120] uppercase tracking-widest mb-1">Upload de Comprovativo</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-10">Capture a tela do M-Pesa/e-mola</p>
+                          </div>
+                        </>
                       )}
                     </div>
-                    <div className="flex-1 flex flex-col justify-between py-1">
-                      <div>
-                        <h3 className="text-xl font-black text-[#0B1120] tracking-tighter leading-tight mb-2 group-hover:text-brand-cyan transition-colors line-clamp-1">{item.nome}</h3>
-                        <span className="px-3 py-1 bg-slate-50 rounded-full text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.categoria}</span>
-                      </div>
-                      <div className="flex items-end justify-between mt-6">
-                        <div className="flex items-center bg-slate-50 rounded-full p-1.5 border border-slate-100">
-                          <button 
-                            onClick={() => onUpdateQuantity(item.id, -1)}
-                            className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-[#0B1120] shadow-sm hover:text-brand-purple transition-all"
-                          >
-                            <Minus size={14} />
-                          </button>
-                          <span className="w-10 text-center text-sm font-black text-[#0B1120]">{item.cartQuantity}</span>
-                          <button 
-                            onClick={() => onUpdateQuantity(item.id, 1)}
-                            className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-[#0B1120] shadow-sm hover:text-brand-cyan transition-all"
-                          >
-                            <Plus size={14} />
-                          </button>
-                        </div>
-                        <div className="flex flex-col items-end">
-                           <button 
-                            onClick={() => onRemove(item.id)}
-                            className="p-2 text-slate-200 hover:text-red-500 transition-colors mb-2"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                          <span className="font-black text-xl tracking-tighter text-[#0B1120]">
-                            { (item.preco * item.cartQuantity).toLocaleString() } <span className="text-[10px] text-slate-300">MT</span>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
                   </div>
-                ))
+                </div>
               )}
             </div>
 
             <div className="p-10 lg:p-14 border-t border-slate-100 space-y-10 bg-slate-50/30 relative">
               <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-brand-cyan/5 to-transparent pointer-events-none" />
-              <div className="flex items-end justify-between relative z-10">
-                <div>
-                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] block mb-2">Total Estimado</span>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Moeda: Metical (MZN)</p>
+              
+              {step === 'cart' ? (
+                <div className="flex items-end justify-between relative z-10">
+                  <div>
+                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] block mb-2">Total Estimado</span>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Moeda: Metical (MZN)</p>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-5xl font-black text-[#0B1120] tracking-tighter leading-none">
+                      {total.toLocaleString()}
+                    </span>
+                    <span className="text-[10px] font-black text-brand-cyan uppercase tracking-widest mt-2">Sincronizado via Local Node</span>
+                  </div>
                 </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-5xl font-black text-[#0B1120] tracking-tighter leading-none">
-                    {total.toLocaleString()}
-                  </span>
-                  <span className="text-[10px] font-black text-brand-cyan uppercase tracking-widest mt-2">Sincronizado via Local Node</span>
-                </div>
-              </div>
+              ) : null}
+
               <button 
-                disabled={items.length === 0}
-                onClick={onCheckout}
-                className="w-full bg-[#0B1120] text-white py-8 rounded-[32px] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-6 shadow-2xl shadow-[#0B1120]/20 hover:bg-brand-purple transition-all disabled:opacity-20 disabled:grayscale transition-all duration-700 relative z-10 active:scale-95"
+                disabled={
+                  (step === 'cart' && items.length === 0) || 
+                  (step === 'method' && !method) || 
+                  (step === 'receipt' && !receiptBase64 && method !== 'Dinheiro') || 
+                  isProcessing || uploadLoading
+                }
+                onClick={async () => {
+                  if (step === 'cart') {
+                    setStep('method');
+                  } else if (step === 'method') {
+                    if (method === 'Dinheiro') {
+                      await onCheckout({ method: 'Dinheiro', receipt: 'PAGO_NA_ENTREGA' });
+                    } else {
+                      setStep('receipt');
+                    }
+                  } else {
+                    handleFinalCheckout();
+                  }
+                }}
+                className="w-full bg-[#0B1120] text-white py-8 rounded-[32px] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-6 shadow-2xl shadow-[#0B1120]/20 hover:bg-brand-purple transition-all disabled:opacity-50 disabled:grayscale transition-all duration-700 relative z-10 active:scale-95 overflow-hidden"
               >
-                Solicitar via WhatsApp Direct
-                <ArrowRight size={24} />
+                {isProcessing ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Enviando Requisição...
+                  </>
+                ) : (
+                  <>
+                    {step === 'cart' ? 'Próximo Passo' : step === 'method' ? 'Confirmar Método' : 'Finalizar e Enviar Protocolo'}
+                    <ArrowRight size={24} />
+                  </>
+                )}
               </button>
+
               <div className="flex flex-col items-center gap-4 relative z-10">
                  <div className="flex items-center gap-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -142,7 +323,6 @@ export const CartDrawer = ({ isOpen, onClose, items, onUpdateQuantity, onRemove,
               </div>
             </div>
           </motion.div>
-
         </>
       )}
     </AnimatePresence>

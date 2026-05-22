@@ -17,8 +17,16 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
 
   useEffect(() => {
+    // Check for payment success from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment') === 'success') {
+      setCartItems([]);
+      // Maybe show a success message here or handled in the page
+    }
+
     const checkAuth = () => {
       try {
         const storedUser = localStorage.getItem('es_user');
@@ -71,36 +79,49 @@ export default function App() {
     setCartItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleCheckout = async () => {
-    if (!user || cartItems.length === 0) return;
+  const handleCheckout = async (paymentData: { method: 'M-Pesa' | 'e-Mola' | 'Dinheiro', receipt: string }) => {
+    if (!user || cartItems.length === 0 || isProcessingCheckout) return;
 
+    setIsProcessingCheckout(true);
     const total = cartItems.reduce((acc, i) => acc + i.preco * i.cartQuantity, 0);
-    const orderData = {
-      user_id: user.id,
-      items: cartItems,
-      total: total,
-      status: 'Pendente',
-      created_at: new Date().toISOString(),
-    };
-
+    const isDinheiro = paymentData.method === 'Dinheiro';
+    
     try {
-      const res = await fetch('/api/encomendas', {
+      // Create order in database with payment info
+      const orderData = {
+        user_id: user.nome || user.email,
+        items: cartItems,
+        total: total,
+        status: isDinheiro ? 'Pendente' : 'Pendente Pagamento',
+        metodo_pagamento: paymentData.method,
+        comprovante_url: paymentData.receipt,
+        created_at: new Date().toISOString(),
+      };
+
+      const orderRes = await fetch('/api/encomendas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
       });
 
-      if (!res.ok) throw new Error('Falha ao registar encomenda');
+      if (!orderRes.ok) throw new Error('Falha ao registar encomenda');
 
-      // Now open WhatsApp
-      const adminPhone = '+258844821126'; // Lavo Joao Mouzinho
-      const message = `*Nova Encomenda E&S Engenharia*\n` + 
-        `Cliente: ${user.nome || user.email}\n\n` +
-        cartItems.map(item => `- ${item.nome} (${item.cartQuantity}x): ${ (item.preco * item.cartQuantity).toLocaleString() } Kz/MT`).join('\n') +
-        `\n\n*Total:* ${ total.toLocaleString() } Kz/MT`;
+      // Notify admin via WhatsApp about the new payment for confirmation
+      const adminPhone = '+258844821126';
+      const message = isDinheiro 
+        ? `*Nova Encomenda (Pagar na Entrega) E&S*\n\n` + 
+          `Cliente: ${user.nome || user.email}\n` +
+          `Método: Dinheiro (Delivery)\n` +
+          `Total: ${ total.toLocaleString() } MT\n\n` +
+          `Por favor, prepare e valide a entrega no painel administrativo.`
+        : `*Novo Pagamento para Validação E&S*\n\n` + 
+          `Cliente: ${user.nome || user.email}\n` +
+          `Método: ${paymentData.method}\n` +
+          `Total: ${ total.toLocaleString() } MT\n\n` +
+          `Por favor, valide o comprovativo no painel administrativo.`;
       
-      const url = `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`;
-      window.open(url, '_blank');
+      const waUrl = `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`;
+      window.open(waUrl, '_blank');
 
       // Clear cart and close drawer
       setCartItems([]);
@@ -108,10 +129,16 @@ export default function App() {
       
       // Notify components that orders might have changed
       window.dispatchEvent(new Event('orders-updated'));
+      alert(isDinheiro 
+        ? 'Pedido submetido com sucesso! O pagamento será feito em dinheiro no ato de entrega.' 
+        : 'Requisição enviada com sucesso! Aguarde a validação do pagamento pelo administrador.'
+      );
 
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Erro ao processar checkout. Verifique sua conexão.');
+      alert(e.message || 'Erro ao processar checkout. Verifique sua conexão.');
+    } finally {
+      setIsProcessingCheckout(false);
     }
   };
 
@@ -137,6 +164,7 @@ export default function App() {
         handleRemoveFromCart={handleRemoveFromCart}
         handleCheckout={handleCheckout}
         handleAddToCart={handleAddToCart}
+        isProcessingCheckout={isProcessingCheckout}
       />
     </Router>
   );
@@ -150,7 +178,8 @@ function AppContent({
   handleUpdateQuantity, 
   handleRemoveFromCart, 
   handleCheckout,
-  handleAddToCart
+  handleAddToCart,
+  isProcessingCheckout
 }: any) {
   const location = useLocation();
   const isAdminPath = location.pathname.startsWith('/admin');
@@ -172,6 +201,7 @@ function AppContent({
             onUpdateQuantity={handleUpdateQuantity}
             onRemove={handleRemoveFromCart}
             onCheckout={handleCheckout}
+            isProcessing={isProcessingCheckout}
           />
         </>
       )}
@@ -181,7 +211,7 @@ function AppContent({
             user ? (
               <Navigate to={user.email === 'helenagarife@gmail.com' ? "/admin" : "/dashboard"} replace />
             ) : (
-              <HomePage user={user} />
+              <HomePage />
             )
           } />
           <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <AuthPage type="login" />} />
