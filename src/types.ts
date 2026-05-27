@@ -28,6 +28,14 @@ export interface Encomenda {
   user_id: string;
   items: CartItem[];
   total: number;
-  status: 'Pendente' | 'Processando' | 'Enviado' | 'Entregue';
+  status: 'Pendente' | 'Processando' | 'Confirmado' | 'Em Trânsito' | 'Entregue' | 'Rejeitado' | 'Cancelado';
   created_at: string;
+  comprovante_url?: string;
+  metodo_pagamento?: string;
+  tipo_entrega?: 'levantamento' | 'delivery';
+  distancia_km?: number;
+  custo_delivery?: number;
+  admin_feedback?: string;
+  localizacao_atual?: string;
+  localizacao_coordenadas?: { lat: number; lng: number };
 }

@@ -17,10 +17,19 @@ import {
   Wrench,
   Zap,
   Send,
-  MessageCircle
+  MessageCircle,
+  ChevronDown,
+  ChevronUp,
+  Printer,
+  CheckCircle2,
+  Clock,
+  MapPin,
+  CreditCard,
+  FileText
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Produto, CartItem, User, Encomenda } from '../types';
+import { MozambiqueMapTrack } from '../components/MozambiqueMapTrack';
 
 interface ClientPageProps {
   user: User;
@@ -49,6 +58,8 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas as Categorias');
+  const [showTerms, setShowTerms] = useState(false);
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   
   // Chat State
   const [chatInput, setChatInput] = useState('');
@@ -249,14 +260,18 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
 
       {/* Main Content */}
       <main className="flex-1 min-w-0">
-        <header className="h-24 bg-white border-b border-slate-200 flex items-center justify-between px-10 sticky top-0 z-30">
-          <div className="flex items-center gap-4 lg:hidden">
-            <div className="w-12 h-12 bg-[#0B1120] rounded-xl flex items-center justify-center p-1">
+        <header className="h-24 bg-white border-b border-slate-200 flex items-center justify-between px-6 sm:px-10 sticky top-0 z-30 shadow-sm">
+          <div className="flex items-center gap-3 lg:hidden">
+            <div className="w-10 h-10 bg-[#0B1120] rounded-xl flex items-center justify-center p-1">
                <img src="/LogoTipo.png" className="w-full h-full object-contain" alt="Logo" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs font-black text-[#0B1120] uppercase tracking-tighter leading-none">E&S</span>
+              <span className="text-[7px] font-black text-brand-purple uppercase tracking-widest mt-0.5">Portal</span>
             </div>
           </div>
 
-          <div className="flex-1 max-w-xl mx-10">
+          <div className="flex-1 max-w-xl mx-4 sm:mx-10">
             {activeTab === 'catalog' && (
               <div className="relative">
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
@@ -276,17 +291,25 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
             )}
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 sm:gap-4">
             <button 
               onClick={onOpenCart}
-              className="relative p-4 bg-[#0B1120] text-white rounded-2xl hover:scale-105 transition-all shadow-lg shadow-[#0B1120]/20 hover:shadow-brand-cyan/20 border border-white/5 group"
+              className="relative p-3.5 bg-[#0B1120] hover:bg-slate-850 text-white rounded-2xl hover:scale-105 transition-all shadow-lg shadow-[#0B1120]/10 hover:shadow-brand-purple/20 border border-white/5 group"
+              title="Ver Encomenda / Carrinho"
             >
-              <ShoppingCart size={20} className="group-hover:text-brand-cyan transition-colors" />
+              <ShoppingCart size={18} className="group-hover:text-brand-purple transition-colors" />
               {cart.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-6 h-6 bg-brand-cyan text-[#0B1120] rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-lg">
+                <span className="absolute -top-1 -right-1 w-5.5 h-5.5 bg-brand-purple text-white rounded-full flex items-center justify-center text-[9px] font-black border-2 border-white shadow-md">
                   {cart.reduce((acc, item) => acc + item.cartQuantity, 0)}
                 </span>
               )}
+            </button>
+            <button 
+              onClick={handleLogout}
+              className="p-3.5 bg-red-50 text-red-600 rounded-2xl hover:bg-red-500 hover:text-white transition-all border border-red-100 hover:border-red-500 shadow-sm"
+              title="Sair do Sistema"
+            >
+              <LogOut size={18} />
             </button>
           </div>
         </header>
@@ -532,14 +555,16 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
                 key="orders"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="space-y-10"
+                className="space-y-10 font-sans"
               >
-                <div className="flex items-center justify-between mb-10">
+                <div className="flex items-center justify-between">
                   <div>
                     <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Minhas Encomendas</h1>
                     <p className="text-sm text-slate-400 mt-1">Acompanhe o percurso dos seus materiais industriais.</p>
                   </div>
                 </div>
+
+                <MozambiqueMapTrack />
 
                 <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm p-10">
                   {encomendas.length === 0 ? (
@@ -550,40 +575,254 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
                   ) : (
                     <div className="space-y-6">
                       {encomendas.map((order) => (
-                        <div key={order.id} className="p-8 bg-slate-50 rounded-[32px] border border-slate-100 hover:border-slate-300 transition-all relative overflow-hidden group">
-                          <div className="absolute top-0 right-0 p-8">
-                             <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] ${
-                               order.status === 'Entregue' ? 'bg-emerald-500/10 text-emerald-500' :
-                               order.status === 'Pendente' ? 'bg-amber-500/10 text-amber-500' :
-                               'bg-blue-500/10 text-blue-500'
-                             }`}>
-                               {order.status}
-                             </div>
+                        <div key={order.id} className="p-8 bg-slate-50 rounded-[32px] border border-slate-100 hover:border-slate-300 transition-all relative overflow-hidden group flex flex-col gap-6 text-left">
+                          
+                          {/* Top row with ID and main status */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200/60">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-2xl bg-[#0B1120] text-brand-cyan flex items-center justify-center font-black">
+                                <FileText size={22} className="text-brand-cyan" />
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">ID Requisição</p>
+                                <p className="text-xl font-black text-[#0B1120]">#ORD-{order.id ? String(order.id).slice(-6).toUpperCase() : '---'}</p>
+                                <p className="text-xs text-slate-500 font-semibold">{new Date(order.created_at).toLocaleString('pt-MZ')}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              {/* Better Accessible status badges */}
+                              <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 shadow-sm ${
+                                order.status === 'Entregue' ? 'bg-emerald-600 text-white' :
+                                order.status === 'Pendente' ? 'bg-amber-600 text-white' :
+                                'bg-blue-600 text-white'
+                              }`}>
+                                {order.status === 'Entregue' ? <CheckCircle2 size={12} className="stroke-2" /> : <Clock size={12} className="stroke-2" />}
+                                {order.status}
+                              </span>
+
+                              {/* Action to expand */}
+                              <button
+                                onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-slate-300 shadow-sm cursor-pointer"
+                              >
+                                <span>{expandedOrder === order.id ? 'Ocultar Detalhes' : 'Ver Fatura Proforma'}</span>
+                                {expandedOrder === order.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              </button>
+                            </div>
                           </div>
 
-                          <div className="flex flex-col md:flex-row md:items-center gap-12">
-                             <div className="space-y-1">
-                               <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none">ID Requisição</p>
-                               <p className="text-xl font-black text-slate-900">#ORD-{order.id ? String(order.id).slice(-6).toUpperCase() : '---'}</p>
-                               <p className="text-xs text-slate-400 font-medium">{new Date(order.created_at).toLocaleString('pt-MZ')}</p>
-                             </div>
-
-                             <div className="flex-1 border-l border-slate-200 pl-12">
-                               <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none mb-4">Materiais Requisitados</p>
+                          {/* Order overview quick row */}
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                             <div className="flex-1">
+                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-3">Materiais Adquiridos</p>
                                <div className="flex flex-wrap gap-2">
                                  {order.items.map((item, idx) => (
-                                   <span key={idx} className="bg-white border border-slate-200 text-[10px] font-bold text-slate-600 px-3 py-1.5 rounded-lg shadow-sm">
+                                   <span key={idx} className="bg-white border border-slate-200 text-[10px] font-bold text-slate-700 px-3 py-1.5 rounded-lg shadow-sm">
                                      {item.cartQuantity}x {item.nome}
                                    </span>
                                  ))}
-                               </div>
+                                </div>
                              </div>
 
-                             <div className="text-right">
-                               <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none mb-2">Total do Investimento</p>
-                               <p className="text-3xl font-black text-slate-900 tracking-tighter">{order.total.toLocaleString()} <span className="text-xs font-bold text-slate-400">Kz/MT</span></p>
+                             <div className="text-left md:text-right pt-4 md:pt-0 border-t md:border-t-0 border-slate-200/60 flex flex-col">
+                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Total do Investimento</p>
+                               <p className="text-3xl font-black text-[#0B1120] tracking-tighter">
+                                 {order.total.toLocaleString()} <span className="text-xs font-bold text-slate-600">Kz/MT</span>
+                               </p>
                              </div>
                           </div>
+
+                          {/* Beautiful Expandable Simplified Invoice summary */}
+                          <AnimatePresence>
+                            {expandedOrder === order.id && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.3 }}
+                                className="overflow-hidden border-t border-slate-200/80 pt-6 mt-4 space-y-6"
+                              >
+                                <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 space-y-8 shadow-inner">
+                                   
+                                   {/* Inside invoice header */}
+                                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-100 pb-6">
+                                      <div className="flex items-center gap-3">
+                                         <div className="w-10 h-10 bg-[#0B1120] rounded-xl flex items-center justify-center p-1.5 flex-shrink-0">
+                                            <img src="/LogoTipo.png" className="w-full h-full object-contain" alt="E&S logo" />
+                                         </div>
+                                         <div className="text-left">
+                                            <h4 className="text-xs font-black text-[#0B1120] uppercase tracking-wider">E&S Engenharia & Serviços</h4>
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none">Manica/Chimoio, Moçambique</p>
+                                         </div>
+                                      </div>
+                                      <div className="text-left sm:text-right text-[10px] font-semibold text-slate-600 leading-normal">
+                                         <p><span className="font-bold text-slate-900">Nº Fatura:</span> #FT-{String(order.id).slice(-8).toUpperCase()}</p>
+                                         <p><span className="font-bold text-slate-900">Emissão:</span> {new Date(order.created_at).toLocaleDateString()}</p>
+                                         <p><span className="font-bold text-slate-900">NUIT E&S:</span> 402153571</p>
+                                      </div>
+                                   </div>
+
+                                   {/* Invoice Bill-To section */}
+                                   <div className="grid sm:grid-cols-2 gap-6 text-left border-b border-slate-100 pb-6 text-xs">
+                                      <div>
+                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Faturado a:</p>
+                                         <p className="font-black text-slate-900">{user.nome || 'Cliente E&S'}</p>
+                                         <p className="font-medium text-slate-600">{user.email}</p>
+                                         <p className="font-medium text-slate-500">Moçambique, África</p>
+                                      </div>
+                                      <div>
+                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Condições & Entrega:</p>
+                                         <div className="flex items-center gap-1.5 text-slate-700 font-bold mb-1">
+                                            <MapPin size={13} className="text-brand-purple" />
+                                            <span>Levantamento Prático nos armazéns (Chimoio)</span>
+                                         </div>
+                                         <div className="flex items-center gap-1.5 text-slate-700 font-bold">
+                                            <CreditCard size={13} className="text-[#0B1120]" />
+                                            <span>M-Pesa ou Transferência Bancária</span>
+                                         </div>
+                                      </div>
+                                   </div>
+
+                                   {/* Invoice Detailed Items Table */}
+                                   <div className="overflow-x-auto text-left">
+                                      <table className="w-full text-xs">
+                                         <thead>
+                                            <tr className="border-b border-slate-200 text-slate-400 font-black uppercase text-[9px] tracking-wider">
+                                               <th className="py-2 text-left">Designação do Material</th>
+                                               <th className="py-2 text-center">Quant.</th>
+                                               <th className="py-2 text-right">Preço Unitário</th>
+                                               <th className="py-2 text-right">Subtotal</th>
+                                            </tr>
+                                         </thead>
+                                         <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                                            {order.items.map((item, idy) => (
+                                               <tr key={idy}>
+                                                  <td className="py-3 text-left font-bold text-slate-950">{item.nome}</td>
+                                                  <td className="py-3 text-center">{item.cartQuantity}</td>
+                                                  <td className="py-3 text-right">{(item.preco || 0).toLocaleString()} Kz/MT</td>
+                                                  <td className="py-3 text-right font-black text-slate-950">{((item.preco || 0) * item.cartQuantity).toLocaleString()} Kz/MT</td>
+                                               </tr>
+                                            ))}
+                                         </tbody>
+                                      </table>
+                                   </div>
+
+                                   {/* Invoiced Calculations sheet */}
+                                   <div className="flex justify-end pt-4">
+                                      <div className="w-full sm:w-64 space-y-2 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-600">
+                                         <div className="flex justify-between">
+                                            <span>Subtotal</span>
+                                            <span className="text-slate-900 font-bold">{(order.total * 0.84).toLocaleString()} Kz/MT</span>
+                                         </div>
+                                         <div className="flex justify-between">
+                                            <span>IVA (16%)</span>
+                                            <span className="text-slate-900 font-bold">{(order.total * 0.16).toLocaleString()} Kz/MT</span>
+                                         </div>
+                                         <div className="flex justify-between text-base font-black text-slate-900 border-t border-slate-200/80 pt-3">
+                                            <span>Total Geral</span>
+                                            <span className="text-brand-purple tracking-tighter">{order.total.toLocaleString()} Kz/MT</span>
+                                         </div>
+                                      </div>
+                                   </div>
+
+                                   {/* Print/Download and direct WhatsApp communication buttons */}
+                                   <div className="flex flex-wrap gap-3 justify-end pt-4 border-t border-slate-100">
+                                      <button
+                                         onClick={() => {
+                                            const printContent = `
+                                               <html>
+                                               <head>
+                                                 <title>Fatura Proforma - E&S Engenharia</title>
+                                                 <style>
+                                                   body { font-family: 'Inter', sans-serif; padding: 40px; color: #333; }
+                                                   .header { display: flex; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 20px; }
+                                                   .logo { font-size: 24px; font-weight: bold; }
+                                                   .billto { display: grid; grid-template-columns: 1fr 1fr; margin: 40px 0; }
+                                                   table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                                                   th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: left; }
+                                                   th { background-color: #f5f5f5; }
+                                                   .total { display: flex; justify-content: flex-end; margin-top: 30px; font-weight: bold; font-size: 18px; }
+                                                 </style>
+                                               </head>
+                                               <body>
+                                                 <div class="header">
+                                                    <div>
+                                                       <div class="logo">E&S Engenharia & Serviços</div>
+                                                       <div>Moçambique, África</div>
+                                                       <div>NUIT: 402153571</div>
+                                                    </div>
+                                                    <div style="text-align: right">
+                                                       <h2>FATURA PROFORMA</h2>
+                                                       <div>Nº Fatura: #FT-${String(order.id).slice(-8).toUpperCase()}</div>
+                                                       <div>Data: ${new Date(order.created_at).toLocaleDateString()}</div>
+                                                    </div>
+                                                 </div>
+                                                 <div class="billto">
+                                                    <div>
+                                                       <strong>Faturado para:</strong><br>
+                                                       ${user.nome || 'Cliente'}<br>
+                                                       ${user.email}
+                                                    </div>
+                                                    <div>
+                                                       <strong>Detalhes do Fornecedor:</strong><br>
+                                                       Lavo João Mouzinho<br>
+                                                       Armazém e Distribuição Manica
+                                                    </div>
+                                                 </div>
+                                                 <table>
+                                                    <thead>
+                                                      <tr>
+                                                        <th>Material</th>
+                                                        <th>Quantidade</th>
+                                                        <th>Preço</th>
+                                                        <th>Total</th>
+                                                      </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                      ${order.items.map(item => `
+                                                         <tr>
+                                                           <td>${item.nome}</td>
+                                                           <td>${item.cartQuantity}</td>
+                                                           <td>${(item.preco || 0).toLocaleString()} Kz/MT</td>
+                                                           <td>${((item.preco || 0) * item.cartQuantity).toLocaleString()} Kz/MT</td>
+                                                         </tr>
+                                                      `).join('')}
+                                                    </tbody>
+                                                 </table>
+                                                 <div class="total">
+                                                    Total Geral: ${order.total.toLocaleString()} Kz/MT
+                                                  </div>
+                                               </body>
+                                               </html>
+                                            `;
+                                            const printWin = window.open('', '_blank');
+                                            if (printWin) {
+                                               printWin.document.write(printContent);
+                                               printWin.document.close();
+                                               printWin.print();
+                                            }
+                                         }}
+                                         className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-md cursor-pointer"
+                                      >
+                                         <Printer size={13} />
+                                         <span>Imprimir Recibo</span>
+                                      </button>
+
+                                      <a
+                                         href={`https://wa.me/258844821126?text=Olá,%20gostaria%20de%20confirmar%20o%20pagamento%20da%20fatura%20%23FT-${String(order.id).slice(-8).toUpperCase()}`}
+                                         target="_blank"
+                                         rel="noopener noreferrer"
+                                         className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-md cursor-pointer"
+                                      >
+                                         <PhoneCall size={13} />
+                                         <span>Confirmar Pagamento</span>
+                                      </a>
+                                   </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
                       ))}
                     </div>
@@ -810,8 +1049,114 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Footer inside client page layout */}
+          <footer className="mt-20 pt-8 border-t border-slate-100 pb-12 flex flex-col sm:flex-row justify-between items-center gap-6 max-w-6xl mx-auto text-slate-400 font-sans px-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em]">©2020-2026 E&S Engenharia & Serviços SU, LDA. Registro Moçambique!</p>
+            <div className="flex gap-6">
+              <button 
+                onClick={() => setShowTerms(true)}
+                className="text-[10px] font-black uppercase tracking-[0.3em] hover:text-slate-900 transition-colors hover:underline"
+              >
+                Termos de Operação
+              </button>
+              <span className="text-[10px] font-black text-brand-purple uppercase tracking-[0.4em]">NUIT: 402153571</span>
+            </div>
+          </footer>
         </div>
       </main>
+
+      {/* Terms of Operation Modal */}
+      <AnimatePresence>
+        {showTerms && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTerms(false)}
+              className="absolute inset-0 bg-[#0B1120]/80 backdrop-blur-sm"
+            />
+            {/* Modal Content */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="relative w-full max-w-2xl bg-white rounded-[32px] shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[85vh] z-10"
+            >
+              {/* Top Banner Accent */}
+              <div className="h-2 bg-gradient-to-r from-brand-cyan to-brand-purple w-full" />
+              
+              <div className="p-8 sm:p-10 flex-1 overflow-y-auto font-sans text-left">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <span className="text-[10px] font-black text-brand-purple uppercase tracking-[0.3em] block mb-1">E&S Engenharia & Serviços</span>
+                    <h3 className="text-3xl font-black text-[#0B1120] tracking-tighter uppercase leading-none">Termos de Operação</h3>
+                  </div>
+                  <button 
+                    onClick={() => setShowTerms(false)}
+                    className="p-2 hover:bg-slate-50 rounded-full transition-colors font-black text-slate-400 hover:text-slate-900"
+                  >
+                    ✕
+                  </button>
+                </div>
+                
+                <div className="space-y-6 text-sm text-slate-600 leading-relaxed">
+                  <p className="font-semibold text-slate-800">
+                    Bem-vindo aos Termos de Operação da E&S Engenharia & Serviços SU, LDA. Estes termos regem a nossa mecânica comercial, fornecimento de materiais e serviços industriais em todo o território nacional de Moçambique.
+                  </p>
+                  
+                  <div className="border-l-2 border-brand-cyan pl-4 space-y-2">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-widest text-xs">1. Objecto e Âmbito</h4>
+                    <p>
+                      Comercialização, fornecimento prático e distribuição de materiais elétricos de alta e média tensão (XLPE), transformadores trifásicos de distribuição, motores industriais do fabricante Siemens e serviços oficiais de engenharia de infraestruturas.
+                    </p>
+                  </div>
+
+                  <div className="border-l-2 border-brand-cyan pl-4 space-y-2">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-widest text-xs">2. Protocolo de Requisição de Stock</h4>
+                    <p>
+                      Todas as mercadorias adicionadas ao protocolo de carrinho constituem solicitações de cotação corporativa formais. As faturas proforma emitidas pelo Lavo João Mouzinho estão asseguradas legalmente sob o NUIT organizacional 402153571.
+                    </p>
+                  </div>
+
+                  <div className="border-l-2 border-brand-cyan pl-4 space-y-2">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-widest text-xs">3. Logística e Rastreamento Nacional</h4>
+                    <p>
+                      O cliente pode optar por Levantamento Prático nos armazéns oficiais (Manica/Chimoio) ou entrega rodoviária via transportadoras parceiras na EN6 ou EN1. O trânsito de transformadores e grandes ativos de infraestrutura é rastreável em tempo real no nosso mapa integrado de rotas.
+                    </p>
+                  </div>
+
+                  <div className="border-l-2 border-brand-cyan pl-4 space-y-2">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-widest text-xs">4. Garantias Tecnológicas</h4>
+                    <p>
+                      Todos os transformadores e motores faturados gozam de garantia de fabricante estendida para 12 meses a contar do ato de entrega certificado, desde que instalados e parametrizados por técnicos qualificados homologados de acordo com os regulamentos de segurança locais.
+                    </p>
+                  </div>
+
+                  <div className="border-l-2 border-brand-cyan pl-4 space-y-2">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-widest text-xs">5. Condições Legais e de Pagamento</h4>
+                    <p>
+                      Sujeito a regulamentações de comércio da República de Moçambique, os pagamentos são liquidados por canal bancário (M-Pesa corporativo ou transferência bancária registada) antes do desalfandegamento ou carregamento dos materiais nas instalações da E&S.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button
+                  onClick={() => setShowTerms(false)}
+                  className="px-6 py-3 bg-[#0B1120] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors"
+                >
+                  Confirmar e Fechar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

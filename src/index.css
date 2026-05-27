@@ -15,6 +15,12 @@
 }
 
 @layer base {
+  html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+    width: 100%;
+  }
+
   body {
     @apply bg-white text-ink font-sans antialiased selection:bg-brand-cyan/20 transition-colors duration-300;
   }

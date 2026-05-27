@@ -79,11 +79,18 @@ export default function App() {
     setCartItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleCheckout = async (paymentData: { method: 'M-Pesa' | 'e-Mola' | 'Dinheiro', receipt: string }) => {
+  const handleCheckout = async (paymentData: { 
+    method: 'M-Pesa' | 'e-Mola' | 'Dinheiro'; 
+    receipt: string;
+    tipo_entrega: 'levantamento' | 'delivery';
+    distancia_km: number;
+    custo_delivery: number;
+  }) => {
     if (!user || cartItems.length === 0 || isProcessingCheckout) return;
 
     setIsProcessingCheckout(true);
-    const total = cartItems.reduce((acc, i) => acc + i.preco * i.cartQuantity, 0);
+    const totalItems = cartItems.reduce((acc, i) => acc + i.preco * i.cartQuantity, 0);
+    const grandTotal = totalItems + (paymentData.custo_delivery || 0);
     const isDinheiro = paymentData.method === 'Dinheiro';
     
     try {
@@ -91,10 +98,13 @@ export default function App() {
       const orderData = {
         user_id: user.nome || user.email,
         items: cartItems,
-        total: total,
-        status: isDinheiro ? 'Pendente' : 'Pendente Pagamento',
+        total: grandTotal,
+        status: isDinheiro ? 'Pendente' : 'Processando',
         metodo_pagamento: paymentData.method,
         comprovante_url: paymentData.receipt,
+        tipo_entrega: paymentData.tipo_entrega,
+        distancia_km: paymentData.distancia_km,
+        custo_delivery: paymentData.custo_delivery,
         created_at: new Date().toISOString(),
       };
 
@@ -108,17 +118,17 @@ export default function App() {
 
       // Notify admin via WhatsApp about the new payment for confirmation
       const adminPhone = '+258844821126';
-      const message = isDinheiro 
-        ? `*Nova Encomenda (Pagar na Entrega) E&S*\n\n` + 
-          `Cliente: ${user.nome || user.email}\n` +
-          `Método: Dinheiro (Delivery)\n` +
-          `Total: ${ total.toLocaleString() } MT\n\n` +
-          `Por favor, prepare e valide a entrega no painel administrativo.`
-        : `*Novo Pagamento para Validação E&S*\n\n` + 
-          `Cliente: ${user.nome || user.email}\n` +
-          `Método: ${paymentData.method}\n` +
-          `Total: ${ total.toLocaleString() } MT\n\n` +
-          `Por favor, valide o comprovativo no painel administrativo.`;
+      const deliveryInfoMsg = paymentData.tipo_entrega === 'delivery' 
+        ? `Modo Entrega: Delivery Regional (${paymentData.distancia_km} km) - Portes: ${paymentData.custo_delivery.toLocaleString()} MT\n`
+        : `Modo Entrega: Levantamento na Sede (Chimoio) - Grátis\n`;
+
+      const message = `*Nova Encomenda E&S Engenharia*\n\n` + 
+        `Cliente: ${user.nome || user.email}\n` +
+        `Método de Pagamento: ${paymentData.method}\n` +
+        deliveryInfoMsg +
+        `Valor dos Artigos: ${totalItems.toLocaleString()} MT\n` +
+        `Total Geral: ${ grandTotal.toLocaleString() } MT\n\n` +
+        `Por favor, prepare e valide a operação e envie o feedback de localização no painel administrativo.`;
       
       const waUrl = `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`;
       window.open(waUrl, '_blank');
@@ -130,8 +140,8 @@ export default function App() {
       // Notify components that orders might have changed
       window.dispatchEvent(new Event('orders-updated'));
       alert(isDinheiro 
-        ? 'Pedido submetido com sucesso! O pagamento será feito em dinheiro no ato de entrega.' 
-        : 'Requisição enviada com sucesso! Aguarde a validação do pagamento pelo administrador.'
+        ? 'Pedido submetido com sucesso! O pagamento será feito no ato da entrega.' 
+        : 'Requisição de pagamento enviada com sucesso! O comprovativo já está anexado para avaliação da Engenheira Helena Garife.'
       );
 
     } catch (e: any) {
@@ -183,27 +193,28 @@ function AppContent({
 }: any) {
   const location = useLocation();
   const isAdminPath = location.pathname.startsWith('/admin');
+  const isDashboardPath = location.pathname.startsWith('/dashboard');
 
   return (
     <div className="min-h-screen bg-paper">
+      {!isAdminPath && !isDashboardPath && (
+        <Navigation 
+          user={user} 
+          cartCount={cartItems.reduce((acc: number, i: any) => acc + i.cartQuantity, 0)} 
+          onOpenCart={() => setIsCartOpen(true)} 
+        />
+      )}
+      
       {!isAdminPath && (
-        <>
-          <Navigation 
-            user={user} 
-            cartCount={cartItems.reduce((acc: number, i: any) => acc + i.cartQuantity, 0)} 
-            onOpenCart={() => setIsCartOpen(true)} 
-          />
-          
-          <CartDrawer 
-            isOpen={isCartOpen} 
-            onClose={() => setIsCartOpen(false)} 
-            items={cartItems}
-            onUpdateQuantity={handleUpdateQuantity}
-            onRemove={handleRemoveFromCart}
-            onCheckout={handleCheckout}
-            isProcessing={isProcessingCheckout}
-          />
-        </>
+        <CartDrawer 
+          isOpen={isCartOpen} 
+          onClose={() => setIsCartOpen(false)} 
+          items={cartItems}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemove={handleRemoveFromCart}
+          onCheckout={handleCheckout}
+          isProcessing={isProcessingCheckout}
+        />
       )}
 
       <Routes>

@@ -28,6 +28,7 @@ import {
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Produto, Category, User } from '../types';
+import { MozambiqueMapTrack } from '../components/MozambiqueMapTrack';
 
 export const AdminPage = () => {
   const [activeTab, setActiveTab] = useState<'inventory' | 'clients' | 'stats' | 'orders'>('stats');
@@ -102,6 +103,13 @@ export const AdminPage = () => {
   const [uploadProgress, setUploadProgress] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  // Live order feedback tracking editor states
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [editStatus, setEditStatus] = useState<string>('');
+  const [editFeedback, setEditFeedback] = useState<string>('');
+  const [editLocation, setEditLocation] = useState<string>('');
+  const [editCoords, setEditCoords] = useState<{ lat: number; lng: number } | null>(null);
+
   const handleProductUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -132,16 +140,28 @@ export const AdminPage = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleUpdateOrderStatus = async (id: string, status: string) => {
+  const handleUpdateOrderStatus = async (
+    id: string, 
+    status: string, 
+    admin_feedback?: string, 
+    localizacao_atual?: string,
+    localizacao_coordenadas?: { lat: number; lng: number } | null
+  ) => {
     try {
       setLoading(true);
       const res = await fetch(`/api/encomendas/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ 
+          status,
+          admin_feedback,
+          localizacao_atual,
+          localizacao_coordenadas
+        })
       });
       if (res.ok) {
         fetchData();
+        setEditingOrderId(null);
       }
     } catch (e) {
       console.error(e);
@@ -711,6 +731,8 @@ export const AdminPage = () => {
              </div>
           </div>
 
+          <MozambiqueMapTrack />
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-sans">
             {encomendas.map((order) => (
               <div key={order.id} className="bg-white rounded-[40px] border border-slate-100 p-8 flex flex-col gap-6 hover:shadow-2xl transition-all relative overflow-hidden group font-sans">
@@ -788,21 +810,145 @@ export const AdminPage = () => {
                     </div>
                   </div>
                 )}
+                {/* Delivery Logistics info breakdown with premium badges */}
+                <div className="border-t border-slate-50 pt-4 space-y-2 font-sans text-xs">
+                  <div className="flex justify-between items-center bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                    <span className="text-[8px] font-black uppercase text-slate-400">Modalidade:</span>
+                    <span className="font-black text-[#0B1120] uppercase text-[9px]">
+                      {order.tipo_entrega === 'delivery' ? '🚚 Ao Encontro (Delivery)' : '🏢 Levantamento Local'}
+                    </span>
+                  </div>
+                  {order.tipo_entrega === 'delivery' && (
+                    <div className="flex justify-between items-center bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                      <span className="text-[8px] font-black uppercase text-slate-400">Raio Metical:</span>
+                      <span className="font-semibold text-slate-500 uppercase text-[9px]">
+                        {order.distancia_km || 0} KM • {order.custo_delivery ? `${order.custo_delivery.toLocaleString()} MT` : '0 MT'}
+                      </span>
+                    </div>
+                  )}
+                  {order.localizacao_atual && (
+                    <div className="bg-brand-cyan/5 border border-brand-cyan/10 p-3 rounded-xl">
+                      <span className="text-[7px] font-black uppercase text-brand-purple tracking-widest block mb-0.5">Rastreamento Live</span>
+                      <p className="font-black text-[#0B1120] text-[10px] uppercase truncate">📍 {order.localizacao_atual}</p>
+                    </div>
+                  )}
+                  {order.admin_feedback && (
+                    <div className="bg-slate-50 p-3 rounded-xl border border-dashed border-slate-200">
+                      <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest block mb-0.5">Nota Administrativa</span>
+                      <p className="text-[9px] text-[#0B1120] italic font-medium">"{order.admin_feedback}"</p>
+                    </div>
+                  )}
+                </div>
 
-                {/* Confirm / Deny control buttons */}
-                {order.status !== 'Confirmado' && order.status !== 'Rejeitado' && order.status !== 'Cancelado' && (
-                  <div className="border-t border-slate-50 pt-4 flex gap-3 mt-auto relative z-20 font-sans">
+                {/* Confirm / Deny control tracking dashboard panel */}
+                {editingOrderId === order.id ? (
+                  <div className="border-t-2 border-slate-100 pt-5 space-y-4 bg-slate-50 p-5 rounded-2xl relative z-30">
+                    <p className="text-[9px] font-black text-brand-purple uppercase tracking-widest">Painel Despachante & Comunicação</p>
+                    
+                    <div>
+                      <label className="block text-[8px] font-black uppercase text-slate-400 mb-1">Estado Operativo</label>
+                      <select 
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value)}
+                        className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-[#0B1120]"
+                      >
+                        <option value="Pendente">Pendente</option>
+                        <option value="Processando">Processando</option>
+                        <option value="Confirmado">Confirmado / Aprovado</option>
+                        <option value="Em Trânsito">Em Trânsito / Expedido</option>
+                        <option value="Entregue">Entregue</option>
+                        <option value="Rejeitado">Rejeitado</option>
+                        <option value="Cancelado">Cancelado</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-black uppercase text-slate-400 mb-1">Mensagem de Resposta (Feedback)</label>
+                      <textarea
+                        rows={2}
+                        value={editFeedback}
+                        onChange={(e) => setEditFeedback(e.target.value)}
+                        placeholder="Ex: Recebemos o pagamento. Encomenda no camião..."
+                        className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-[#0B1120]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-black uppercase text-slate-400 mb-1">Coordenadas & Nó da Localização</label>
+                      <select 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'chimoio') {
+                            setEditLocation('Sede Operacional de Chimoio');
+                            setEditCoords({ lat: -19.12, lng: 33.48 });
+                          } else if (val === 'maputo_porto') {
+                            setEditLocation('Porto de Maputo - Desembarque aduaneiro');
+                            setEditCoords({ lat: -25.97, lng: 32.58 });
+                          } else if (val === 'inchope') {
+                            setEditLocation('Estrada Nacional N6 - Trânsito no Posto de Inchope');
+                            setEditCoords({ lat: -19.49, lng: 34.02 });
+                          } else if (val === 'beira_porto') {
+                            setEditLocation('Porto da Beira - Cargas Internacionais');
+                            setEditCoords({ lat: -19.83, lng: 34.84 });
+                          } else if (val === 'nampula') {
+                            setEditLocation('Norte Nampula Hub - Distribuição Regional');
+                            setEditCoords({ lat: -15.11, lng: 39.26 });
+                          } else if (val === 'tete') {
+                            setEditLocation('Tete Hub - Centro de Operação');
+                            setEditCoords({ lat: -16.15, lng: 33.58 });
+                          } else {
+                            setEditLocation('');
+                            setEditCoords(null);
+                          }
+                        }}
+                        className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-[#0B1120] mb-2"
+                      >
+                        <option value="">Selecione um ponto estratégico...</option>
+                        <option value="chimoio">Sede Chimoio (Chimoio Hub)</option>
+                        <option value="maputo_porto">Porto de Maputo</option>
+                        <option value="inchope">Inchope EN6/EN1</option>
+                        <option value="beira_porto">Porto da Beira</option>
+                        <option value="nampula">Nampula Hub</option>
+                        <option value="tete">Tete Hub</option>
+                      </select>
+                      
+                      <input
+                        type="text"
+                        value={editLocation}
+                        onChange={(e) => setEditLocation(e.target.value)}
+                        placeholder="Ou escreva localização customizada..."
+                        className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-[#0B1120]"
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleUpdateOrderStatus(order.id, editStatus, editFeedback, editLocation, editCoords)}
+                        className="flex-1 py-2 bg-[#0B1120] text-brand-cyan hover:bg-emerald-600 hover:text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors"
+                      >
+                        Submeter Mudança
+                      </button>
+                      <button
+                        onClick={() => setEditingOrderId(null)}
+                        className="py-2 px-3 bg-white text-slate-500 hover:text-red-500 rounded-lg text-[9px] font-black uppercase border border-slate-200"
+                      >
+                        Fechar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-t border-slate-50 pt-4 flex gap-2 mt-auto relative z-20">
                     <button
-                      onClick={() => handleUpdateOrderStatus(order.id, 'Confirmado')}
-                      className="flex-1 py-3 bg-[#0B1120] text-white hover:bg-emerald-500 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 font-sans"
+                      onClick={() => {
+                        setEditingOrderId(order.id);
+                        setEditStatus(order.status || 'Pendente');
+                        setEditFeedback(order.admin_feedback || '');
+                        setEditLocation(order.localizacao_atual || '');
+                        setEditCoords(order.localizacao_coordenadas || null);
+                      }}
+                      className="flex-1 py-3 bg-[#0B1120] text-white hover:bg-brand-purple rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95"
                     >
-                      Confirmar
-                    </button>
-                    <button
-                      onClick={() => handleUpdateOrderStatus(order.id, 'Rejeitado')}
-                      className="py-3 px-4 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 font-sans"
-                    >
-                      Rejeitar
+                      Gerir Rastreamento & Status
                     </button>
                   </div>
                 )}

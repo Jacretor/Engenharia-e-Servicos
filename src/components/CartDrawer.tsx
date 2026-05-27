@@ -9,11 +9,34 @@ interface CartDrawerProps {
   items: CartItem[];
   onUpdateQuantity: (id: string, delta: number) => void;
   onRemove: (id: string) => void;
-  onCheckout: (paymentData: { method: 'M-Pesa' | 'e-Mola' | 'Dinheiro', receipt: string }) => Promise<void>;
+  onCheckout: (paymentData: { 
+    method: 'M-Pesa' | 'e-Mola' | 'Dinheiro'; 
+    receipt: string;
+    tipo_entrega: 'levantamento' | 'delivery';
+    distancia_km: number;
+    custo_delivery: number;
+  }) => Promise<void>;
   isProcessing?: boolean;
 }
 
-type CheckoutStep = 'cart' | 'method' | 'receipt';
+type CheckoutStep = 'cart' | 'delivery' | 'method' | 'receipt';
+
+interface CityRoute {
+  id: string;
+  name: string;
+  dist: number;
+  desc: string;
+}
+
+const PREDEFINED_ROUTES: CityRoute[] = [
+  { id: 'chimoio-cidade', name: 'Chimoio (Zona Verde / Centro)', dist: 5, desc: 'Centralidade E&S' },
+  { id: 'gondola', name: 'Gondola', dist: 20, desc: 'Via Estrada Nacional N6' },
+  { id: 'manica', name: 'Manica Fronteira', dist: 35, desc: 'Corredor do Chimoio' },
+  { id: 'beira', name: 'Porto da Beira (Sofala)', dist: 140, desc: 'Eixo de Cargas Pesadas' },
+  { id: 'tete', name: 'Tete (Cahora Bassa)', dist: 390, desc: 'Projectos Agrícolas/Energéticos' },
+  { id: 'maputo', name: 'Maputo (Capital/Sul)', dist: 1100, desc: 'Conexão Matola e Portuário' },
+  { id: 'nampula', name: 'Nampula (Norte)', dist: 1150, desc: 'Centro de Distribuição do Norte' },
+];
 
 export const CartDrawer = ({ 
   isOpen, 
@@ -28,9 +51,14 @@ export const CartDrawer = ({
   const [method, setMethod] = useState<'M-Pesa' | 'e-Mola' | 'Dinheiro' | null>(null);
   const [receiptBase64, setReceiptBase64] = useState<string | null>(null);
   const [uploadLoading, setUploadLoading] = useState(false);
+  const [tipoEntrega, setTipoEntrega] = useState<'levantamento' | 'delivery'>('levantamento');
+  const [distanciaKm, setDistanciaKm] = useState<number>(10);
+  const [customDistanceActive, setCustomDistanceActive] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const total = items.reduce((sum, item) => sum + item.preco * item.cartQuantity, 0);
+  const custoDelivery = tipoEntrega === 'delivery' ? distanciaKm * 20 : 0;
+  const grandTotal = total + custoDelivery;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -47,13 +75,22 @@ export const CartDrawer = ({
 
   const handleFinalCheckout = () => {
     if (!method) return;
-    onCheckout({ method, receipt: receiptBase64 || 'PAGO_NA_ENTREGA' });
+    onCheckout({ 
+      method, 
+      receipt: receiptBase64 || 'PAGO_NA_ENTREGA',
+      tipo_entrega: tipoEntrega,
+      distancia_km: tipoEntrega === 'delivery' ? distanciaKm : 0,
+      custo_delivery: custoDelivery
+    });
   };
 
   const resetAndClose = () => {
     setStep('cart');
     setMethod(null);
     setReceiptBase64(null);
+    setTipoEntrega('levantamento');
+    setDistanciaKm(10);
+    setCustomDistanceActive(false);
     onClose();
   };
 
@@ -86,7 +123,11 @@ export const CartDrawer = ({
               <div className="flex items-center gap-6 relative z-10">
                 {step !== 'cart' && (
                   <button 
-                    onClick={() => setStep(step === 'receipt' ? 'method' : 'cart')}
+                    onClick={() => {
+                      if (step === 'delivery') setStep('cart');
+                      else if (step === 'method') setStep('delivery');
+                      else if (step === 'receipt') setStep('method');
+                    }}
                     className="p-3 bg-white text-slate-400 hover:text-[#0B1120] rounded-xl border border-slate-100 transition-all mr-2"
                   >
                     <ChevronLeft size={20} />
@@ -97,10 +138,10 @@ export const CartDrawer = ({
                 </div>
                 <div>
                   <h2 className="text-4xl font-black text-[#0B1120] uppercase tracking-tighter leading-none mb-2">
-                    {step === 'cart' ? 'Requisição' : step === 'method' ? 'Pagamento' : 'Confirmação'}
+                    {step === 'cart' ? 'Requisição' : step === 'delivery' ? 'Entrega' : step === 'method' ? 'Pagamento' : 'Confirmação'}
                   </h2>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                    {step === 'cart' ? 'Inventário de Activos • Protocolo E&S' : 'Processamento Seguro M-Pesa / e-Mola'}
+                    {step === 'cart' ? 'Inventário de Activos • Protocolo E&S' : step === 'delivery' ? 'RASTREIO & COORDENADAS EM TEMPO REAL' : 'Processamento Seguro M-Pesa / e-Mola'}
                   </p>
                 </div>
               </div>
@@ -123,7 +164,8 @@ export const CartDrawer = ({
                     <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] max-w-xs leading-relaxed">Não foram seleccionados activos para este protocolo de requisição.</p>
                   </div>
                 ) : (
-                  items.map((item) => (
+                  <div className="space-y-6">
+                    {items.map((item) => (
                     <div key={item.id} className="flex gap-8 group bg-white border border-slate-50 p-6 rounded-[32px] hover:border-brand-cyan/20 hover:shadow-xl transition-all">
                       <div className="w-28 h-28 bg-slate-50 rounded-[24px] overflow-hidden border border-slate-100 flex-shrink-0 relative">
                         {item.foto_url ? (
@@ -167,8 +209,133 @@ export const CartDrawer = ({
                         </div>
                       </div>
                     </div>
-                  ))
-                )
+                  ))}
+                  </div>
+                )) : step === 'delivery' ? (
+                <div className="space-y-8 font-sans">
+                  <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Resumo dos Artigos</p>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-bold text-slate-500 uppercase text-[10px] tracking-wider">Subtotal Equipamentos/Serviços:</span>
+                      <span className="font-black text-[#0B1120] text-lg">{total.toLocaleString()} MT</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Como deseja receber seus activos?</span>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTipoEntrega('levantamento');
+                          setCustomDistanceActive(false);
+                        }}
+                        className={`p-6 rounded-[24px] border-2 text-left transition-all flex flex-col justify-between min-h-[130px] ${
+                          tipoEntrega === 'levantamento' 
+                            ? 'border-brand-purple bg-brand-purple/5 shadow-sm' 
+                            : 'border-slate-100 hover:border-slate-200 bg-white'
+                        }`}
+                      >
+                        <span className="text-[11px] font-black uppercase tracking-tight text-[#0B1120]">Levantamento Local</span>
+                        <div>
+                          <p className="text-[8px] text-slate-400 uppercase font-black tracking-wider mt-1">Sede em Chimoio</p>
+                          <p className="text-base font-black text-emerald-600 mt-1">Grátis (0 MT)</p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTipoEntrega('delivery');
+                        }}
+                        className={`p-6 rounded-[24px] border-2 text-left transition-all flex flex-col justify-between min-h-[130px] ${
+                          tipoEntrega === 'delivery' 
+                            ? 'border-brand-cyan bg-brand-cyan/5 shadow-sm' 
+                            : 'border-slate-100 hover:border-slate-200 bg-white'
+                        }`}
+                      >
+                        <span className="text-[11px] font-black uppercase tracking-tight text-[#0B1120]">Entrega ao Encontro</span>
+                        <div>
+                          <p className="text-[8px] text-slate-400 uppercase font-black tracking-wider mt-1">Delivery Regional</p>
+                          <p className="text-base font-black text-brand-purple mt-1">20 MT / KM</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {tipoEntrega === 'delivery' && (
+                    <div className="space-y-6 bg-slate-50/70 border border-slate-100 p-6 rounded-[28px] mt-4 animate-fade-in">
+                      <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none">Selecione o Destino Regional de Entrega</span>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        {PREDEFINED_ROUTES.map((r) => {
+                          const isSel = !customDistanceActive && distanciaKm === r.dist;
+                          return (
+                            <button
+                              key={r.id}
+                              type="button"
+                              onClick={() => {
+                                setDistanciaKm(r.dist);
+                                setCustomDistanceActive(false);
+                              }}
+                              className={`p-3 rounded-xl border text-left transition-all ${
+                                isSel ? 'bg-[#0B1120] text-white border-[#0B1120]' : 'bg-white text-[#0B1120] border-slate-100 hover:border-slate-200'
+                              }`}
+                            >
+                              <span className="block text-[9px] font-black uppercase tracking-tight truncate">{r.name}</span>
+                              <span className="block text-[7px] font-bold opacity-60 uppercase mt-0.5">{r.dist} km • {r.desc}</span>
+                            </button>
+                          );
+                        })}
+                        
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomDistanceActive(true);
+                            setDistanciaKm(50);
+                          }}
+                          className={`p-3 rounded-xl border text-left transition-all col-span-2 ${
+                            customDistanceActive ? 'bg-[#0B1120] text-white border-[#0B1120]' : 'bg-white text-[#0B1120] border-slate-100 hover:border-slate-200'
+                          }`}
+                        >
+                          <span className="block text-[9px] font-black uppercase tracking-tight">Outra Distância (Definir Quilómetragem Manual)</span>
+                          <span className="block text-[7px] font-bold opacity-60 uppercase mt-0.5">Definir raio de quilómetros específico</span>
+                        </button>
+                      </div>
+
+                      {customDistanceActive && (
+                        <div className="space-y-3 pt-4 border-t border-slate-100">
+                          <div className="flex justify-between items-center text-[9px] font-black uppercase text-slate-500 tracking-widest">
+                            <span>Distância Definida:</span>
+                            <span className="text-[#0B1120] font-black text-xs">{distanciaKm} km</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="1"
+                            max="1200"
+                            step="5"
+                            value={distanciaKm}
+                            onChange={(e) => setDistanciaKm(Number(e.target.value))}
+                            className="w-full h-2 rounded-lg cursor-pointer bg-slate-200 accent-brand-cyan"
+                          />
+                          <div className="flex justify-between text-[7px] text-slate-400 font-bold tracking-widest uppercase">
+                            <span>1 km</span>
+                            <span>600 km</span>
+                            <span>1200 km</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
+                        <div>
+                          <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">Preço de Transporte Calculado</span>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">{distanciaKm} km × 20 MT</span>
+                        </div>
+                        <span className="text-xl font-black text-[#0B1120]">{custoDelivery.toLocaleString()} MT</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : step === 'method' ? (
                 <div className="space-y-10">
                   <div className="bg-slate-50 p-10 rounded-[40px] border border-slate-100 mb-10">
@@ -257,25 +424,34 @@ export const CartDrawer = ({
                   </div>
                 </div>
               )}
-            </div>
-
-            <div className="p-10 lg:p-14 border-t border-slate-100 space-y-10 bg-slate-50/30 relative">
+              </div>
+              
+              <div className="p-10 lg:p-14 border-t border-slate-100 space-y-6 bg-slate-50/30 relative">
               <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-brand-cyan/5 to-transparent pointer-events-none" />
               
-              {step === 'cart' ? (
-                <div className="flex items-end justify-between relative z-10">
+              <div className="space-y-3 pt-2 border-b border-slate-100/50 pb-5 relative z-10 font-sans">
+                <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-400">
+                  <span>Subtotal dos Activos</span>
+                  <span className="font-black text-[#0B1120] text-sm">{total.toLocaleString()} MT</span>
+                </div>
+                {tipoEntrega === 'delivery' && (
+                  <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-400">
+                    <span>Taxa de Entrega ({distanciaKm} km @ 20MT/km)</span>
+                    <span className="font-black text-brand-purple text-sm">+{custoDelivery.toLocaleString()} MT</span>
+                  </div>
+                )}
+                <div className="flex items-end justify-between relative z-10 pt-2">
                   <div>
-                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] block mb-2">Total Estimado</span>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Moeda: Metical (MZN)</p>
+                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] block mb-1">Total Geral</span>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Moeda Oficial: Metical (MZN)</p>
                   </div>
                   <div className="flex flex-col items-end">
-                    <span className="text-5xl font-black text-[#0B1120] tracking-tighter leading-none">
-                      {total.toLocaleString()}
+                    <span className="text-4xl font-black text-[#0B1120] tracking-tighter leading-none">
+                      {grandTotal.toLocaleString()} <span className="text-sm text-slate-400 font-bold">MT</span>
                     </span>
-                    <span className="text-[10px] font-black text-brand-cyan uppercase tracking-widest mt-2">Sincronizado via Local Node</span>
                   </div>
                 </div>
-              ) : null}
+              </div>
 
               <button 
                 disabled={
@@ -286,10 +462,18 @@ export const CartDrawer = ({
                 }
                 onClick={async () => {
                   if (step === 'cart') {
+                    setStep('delivery');
+                  } else if (step === 'delivery') {
                     setStep('method');
                   } else if (step === 'method') {
                     if (method === 'Dinheiro') {
-                      await onCheckout({ method: 'Dinheiro', receipt: 'PAGO_NA_ENTREGA' });
+                      await onCheckout({ 
+                        method: 'Dinheiro', 
+                        receipt: 'PAGO_NA_ENTREGA',
+                        tipo_entrega: tipoEntrega,
+                        distancia_km: tipoEntrega === 'delivery' ? distanciaKm : 0,
+                        custo_delivery: custoDelivery
+                      });
                     } else {
                       setStep('receipt');
                     }
@@ -297,7 +481,7 @@ export const CartDrawer = ({
                     handleFinalCheckout();
                   }
                 }}
-                className="w-full bg-[#0B1120] text-white py-8 rounded-[32px] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-6 shadow-2xl shadow-[#0B1120]/20 hover:bg-brand-purple transition-all disabled:opacity-50 disabled:grayscale transition-all duration-700 relative z-10 active:scale-95 overflow-hidden"
+                className="w-full bg-[#0B1120] text-white py-6 rounded-[24px] font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-4 shadow-2xl hover:bg-brand-purple transition-all disabled:opacity-50 disabled:grayscale duration-300 relative z-10 active:scale-95 overflow-hidden"
               >
                 {isProcessing ? (
                   <>
@@ -306,20 +490,19 @@ export const CartDrawer = ({
                   </>
                 ) : (
                   <>
-                    {step === 'cart' ? 'Próximo Passo' : step === 'method' ? 'Confirmar Método' : 'Finalizar e Enviar Protocolo'}
-                    <ArrowRight size={24} />
+                    {step === 'cart' ? 'Definir Entrega' : step === 'delivery' ? 'Escolher Método de Pagamento' : step === 'method' ? 'Confirmar Dinheiro / Setup Transfer' : 'Submeter Comprovante e Finalizar'}
+                    <ArrowRight size={18} />
                   </>
                 )}
               </button>
 
-              <div className="flex flex-col items-center gap-4 relative z-10">
-                 <div className="flex items-center gap-3">
+              <div className="flex flex-col items-center gap-2 relative z-10 font-sans">
+                 <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <p className="text-[9px] text-slate-300 uppercase font-black tracking-[0.4em]">
-                      Ambiente de Protocolo Seguro 256-bit
+                    <p className="text-[8px] text-slate-400 uppercase font-black tracking-[0.3em]">
+                      Protocolo de Transação Segura • E&S Moçambique
                     </p>
                  </div>
-                 <div className="w-20 h-1 bg-slate-100 rounded-full" />
               </div>
             </div>
           </motion.div>

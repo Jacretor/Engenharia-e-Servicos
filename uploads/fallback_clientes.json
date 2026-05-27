@@ -1,0 +1,26 @@
+[
+  {
+    "id": "1",
+    "nome": "João Silva",
+    "email": "joao@example.com",
+    "active": true,
+    "created_at": "2026-05-27T07:28:14.525Z",
+    "senha": "cliente123"
+  },
+  {
+    "id": "2",
+    "nome": "Maria Santos",
+    "email": "maria@example.com",
+    "active": true,
+    "created_at": "2026-05-27T07:28:14.525Z",
+    "senha": "cliente123"
+  },
+  {
+    "id": "3",
+    "nome": "Helena Garife",
+    "email": "helenagarife@gmail.com",
+    "active": true,
+    "created_at": "2026-05-27T07:28:14.525Z",
+    "senha": "cliente123"
+  }
+]

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Package, ShieldCheck, Wrench, Cpu, Plus, Zap, Search } from 'lucide-react';
 import { Produto, Category } from '../types';
 import { useNavigate, Link } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { useNavigate, Link } from 'react-router-dom';
 export const HomePage = () => {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showTerms, setShowTerms] = useState(false);
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
   const navigate = useNavigate();
 
@@ -105,7 +106,7 @@ export const HomePage = () => {
                  transition={{ delay: 0.5, duration: 0.8 }}
                  className="h-[2px] bg-brand-cyan" 
                />
-               <span className="text-[10px] font-black uppercase tracking-[0.5em] text-brand-cyan/60">Sede Operacional: Manica, Moçambique</span>
+               <span className="text-[10px] font-black uppercase tracking-[0.5em] text-brand-cyan">Sede Operacional: Manica, Moçambique</span>
             </div>
             
             <h1 className="text-[clamp(3rem,10vw,8rem)] font-black leading-[0.85] tracking-tighter text-white mb-12">
@@ -113,7 +114,7 @@ export const HomePage = () => {
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-cyan via-brand-purple to-brand-cyan bg-[length:200%_auto] animate-gradient-x italic font-medium">INDUSTRIAL</span>.
             </h1>
 
-            <p className="text-xl md:text-2xl text-slate-400 max-w-2xl font-medium leading-relaxed mb-16 tracking-tight">
+            <p className="text-xl md:text-2xl text-slate-300 max-w-2xl font-medium leading-relaxed mb-16 tracking-tight">
               A <span className="text-white">Engenharia & Serviços SU, LDA</span> liderada por Lavo João Mouzinho, redefine a infraestrutura industrial com tecnologia de vanguarda e logística de elite.
             </p>
 
@@ -157,23 +158,23 @@ export const HomePage = () => {
       <section className="py-32 bg-white relative">
         <div className="container max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-3 gap-8">
-             <div className="p-12 bg-white rounded-[40px] border border-slate-100 hover:border-brand-cyan/20 transition-all duration-500 group relative overflow-hidden">
+             <div className="p-12 bg-white rounded-[40px] border border-slate-200 hover:border-brand-cyan/20 transition-all duration-500 group relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-brand-cyan/5 rounded-full -translate-x-12 -translate-y-12 transition-transform group-hover:scale-150" />
                 <ShieldCheck className="mb-8 text-brand-cyan" size={40} />
                 <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 text-[#0B1120]">Protocolos de Elite</h3>
-                <p className="text-sm text-slate-500 font-medium leading-relaxed">Materiais certificados sob os mais rigorosos testes de qualidade industrial em Moçambique.</p>
+                <p className="text-sm text-slate-700 font-bold leading-relaxed">Materiais certificados sob os mais rigorosos testes de qualidade industrial em Moçambique.</p>
              </div>
              <div className="p-12 bg-[#0B1120] rounded-[40px] border border-white/5 transition-all duration-500 group relative overflow-hidden shadow-2xl">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-brand-purple/10 rounded-full -translate-x-12 -translate-y-12" />
                 <Cpu className="mb-8 text-brand-purple" size={40} />
                 <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 text-white">Ecossistema TI</h3>
-                <p className="text-sm text-white/40 font-medium leading-relaxed">Integração digital imediata via WhatsApp Direct para gestão de ativos e suporte remoto.</p>
+                <p className="text-sm text-slate-200 font-bold leading-relaxed">Integração digital imediata via WhatsApp Direct para gestão de ativos e suporte remoto.</p>
              </div>
-             <div className="p-12 bg-white rounded-[40px] border border-slate-100 hover:border-brand-purple/20 transition-all duration-500 group relative overflow-hidden">
+             <div className="p-12 bg-white rounded-[40px] border border-slate-200 hover:border-brand-purple/20 transition-all duration-500 group relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-brand-purple/5 rounded-full -translate-x-12 -translate-y-12 transition-transform group-hover:scale-150" />
                 <Wrench className="mb-8 text-brand-purple" size={40} />
                 <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 text-[#0B1120]">Expertise Técnica</h3>
-                <p className="text-sm text-slate-500 font-medium leading-relaxed">Assistência especializada de Lavo João Mouzinho em sistemas mecânicos e alta potência elétrica.</p>
+                <p className="text-sm text-slate-700 font-bold leading-relaxed">Assistência especializada de Lavo João Mouzinho em sistemas mecânicos e alta potência elétrica.</p>
              </div>
           </div>
         </div>
@@ -210,11 +211,11 @@ export const HomePage = () => {
                 transition={{ delay: idx * 0.1 }}
                 className="p-10 rounded-[40px] bg-white border border-slate-100 hover:border-brand-purple/30 group transition-all duration-700 hover:shadow-[0_20px_50px_rgba(112,72,232,0.08)]"
               >
-                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300 mb-8 group-hover:bg-brand-purple group-hover:text-white transition-all duration-500">
+                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-600 font-bold mb-8 group-hover:bg-brand-purple group-hover:text-white transition-all duration-500">
                   <s.icon size={28} />
                 </div>
                 <h3 className="text-xl font-black text-[#0B1120] uppercase tracking-tighter mb-4">{s.name}</h3>
-                <p className="text-sm text-slate-400 font-medium leading-relaxed mb-10">{s.desc}</p>
+                <p className="text-sm text-slate-700 font-medium leading-relaxed mb-10">{s.desc}</p>
                 <button className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-[#0B1120] group-hover:text-brand-purple transition-all">
                   Consultar Protocolo <Plus size={14} />
                 </button>
@@ -225,11 +226,11 @@ export const HomePage = () => {
           {services.length === 0 && (
             <div className="py-32 text-center bg-white border-2 border-dashed border-slate-200 rounded-[50px]">
               <div className="mb-6 flex justify-center">
-                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-200">
+                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-500">
                    <Search size={32} />
                  </div>
               </div>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Nenhum serviço mapeado para "{serviceSearch}"</p>
+              <p className="text-xs font-black text-slate-700 uppercase tracking-[0.3em]">Nenhum serviço mapeado para "{serviceSearch}"</p>
             </div>
           )}
         </div>
@@ -240,8 +241,8 @@ export const HomePage = () => {
         <div className="container max-w-7xl mx-auto px-6">
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 mb-24">
              <div className="max-w-2xl">
-                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-brand-cyan mb-6 block">Supply Chain</span>
-                <h2 className="text-5xl md:text-8xl font-black tracking-tighter text-[#0B1120] mb-6 leading-[0.9]">Inventário <span className="text-slate-300 font-light">&</span> Stock.</h2>
+                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-brand-purple mb-6 block">Supply Chain</span>
+                <h2 className="text-5xl md:text-8xl font-black tracking-tighter text-[#0B1120] mb-6 leading-[0.9]">Inventário <span className="text-slate-500 font-bold">&</span> Stock.</h2>
              </div>
              <div className="flex flex-wrap gap-2 p-2 bg-slate-50 rounded-[28px]">
                 {categories.map((cat) => (
@@ -251,7 +252,7 @@ export const HomePage = () => {
                     className={`px-8 py-4 rounded-[22px] text-[10px] font-black uppercase tracking-widest transition-all ${
                       activeCategory === cat 
                       ? 'bg-brand-cyan text-[#0B1120] shadow-xl shadow-brand-cyan/20' 
-                      : 'text-slate-400 hover:text-[#0B1120]'
+                      : 'text-slate-600 font-bold hover:text-[#0B1120]'
                     }`}
                   >
                     {cat}
@@ -294,14 +295,14 @@ export const HomePage = () => {
                   </div>
                   
                   <div className="px-4">
-                    <h3 className="text-xl font-black text-[#0B1120] tracking-tighter mb-2 group-hover:text-brand-cyan transition-colors">{p.nome}</h3>
+                    <h3 className="text-xl font-black text-[#0B1120] tracking-tighter mb-2 group-hover:text-brand-purple transition-colors">{p.nome}</h3>
                     <div className="flex items-center justify-between">
                        <p className="text-lg font-black text-[#0B1120]">
-                         {p.preco.toLocaleString()} <span className="text-[10px] text-slate-300 font-bold ml-1">Kz/MT</span>
+                         {p.preco.toLocaleString()} <span className="text-[10px] text-slate-600 font-black ml-1">Kz/MT</span>
                        </p>
                        <div className="flex items-center gap-2">
                           <div className={`w-2 h-2 rounded-full ${p.quantidade > 5 ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">
                              {p.quantidade > 0 ? `${p.quantidade} un` : 'Esgotado'}
                           </span>
                        </div>
@@ -361,7 +362,7 @@ export const HomePage = () => {
                       <p className="text-[10px] font-black text-brand-purple uppercase tracking-[0.5em] mt-1">SU, LDA • Manica</p>
                    </div>
                 </div>
-                <p className="text-sm font-medium text-slate-400 leading-relaxed mb-10 italic">
+                <p className="text-sm font-semibold text-slate-700 leading-relaxed mb-10 italic">
                    Excelência técnica em sistemas críticos. Pioneiros em Chimoio, Moçambique. Infraestruturas blindadas, performance garantida.
                 </p>
                 <div className="flex gap-4">
@@ -379,15 +380,15 @@ export const HomePage = () => {
 
              <div className="grid grid-cols-2 md:grid-cols-2 gap-20">
                 <div>
-                   <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-300 mb-10">Navegação</h5>
+                   <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-600 mb-10">Navegação</h5>
                    <ul className="space-y-6">
-                      <li><a href="#catalog" className="text-xs font-black uppercase tracking-widest text-[#0B1120] hover:text-brand-cyan transition-colors">Produtos</a></li>
-                      <li><a href="#services" className="text-xs font-black uppercase tracking-widest text-[#0B1120] hover:text-brand-cyan transition-colors">Serviços Técnicos</a></li>
-                      <li><Link to="/login" className="text-xs font-black uppercase tracking-widest bg-brand-cyan px-4 py-2 rounded-lg text-[#0B1120]">Painel Privado</Link></li>
+                      <li><a href="#catalog" className="text-xs font-black uppercase tracking-widest text-[#0B1120] hover:text-brand-purple transition-colors">Produtos</a></li>
+                      <li><a href="#services" className="text-xs font-black uppercase tracking-widest text-[#0B1120] hover:text-brand-purple transition-colors">Serviços Técnicos</a></li>
+                      <li><Link to="/login" className="text-xs font-black uppercase tracking-widest bg-[#0B1120] hover:bg-slate-800 text-white px-4 py-2.5 rounded-lg transition-all">Painel Privado</Link></li>
                    </ul>
                 </div>
                 <div>
-                   <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-300 mb-10">Contactos Oficiais</h5>
+                   <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-600 mb-10">Contactos Oficiais</h5>
                    <ul className="space-y-6">
                       <li className="text-xs font-black uppercase tracking-widest text-[#0B1120]">+258 844 821 126</li>
                       <li className="text-xs font-black uppercase tracking-widest text-[#0B1120]">admin@engservicos.co.mz</li>
@@ -397,15 +398,112 @@ export const HomePage = () => {
              </div>
           </div>
           
-          <div className="mt-32 pt-12 border-t border-slate-50 flex flex-col md:flex-row justify-between items-center gap-10">
-             <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">© 2026 E&S Engenharia & Serviços SU, LDA. Registro Moçambique.</p>
+          <div className="mt-32 pt-12 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-10">
+             <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em]">© 2020-2026 E&S Engenharia & Serviços SU, LDA. Registro Moçambique.</p>
              <div className="flex gap-10">
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] hover:text-[#0B1120] cursor-pointer">Termos de Operação</span>
+                <span 
+                  onClick={() => setShowTerms(true)} 
+                  className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] hover:text-[#0B1120] hover:underline cursor-pointer transition-colors duration-300"
+                >
+                  Termos de Operação
+                </span>
                 <span className="text-[10px] font-black text-brand-purple uppercase tracking-[0.4em]">NUIT: 402153571</span>
              </div>
           </div>
         </div>
       </footer>
+
+      {/* Terms of Operation Modal */}
+      <AnimatePresence>
+        {showTerms && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTerms(false)}
+              className="absolute inset-0 bg-[#0B1120]/80 backdrop-blur-sm"
+            />
+            {/* Modal Content */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="relative w-full max-w-2xl bg-white rounded-[32px] shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[85vh] z-10"
+            >
+              {/* Top Banner Accent */}
+              <div className="h-2 bg-gradient-to-r from-brand-cyan to-brand-purple w-full" />
+              
+              <div className="p-8 sm:p-10 flex-1 overflow-y-auto font-sans">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <span className="text-[10px] font-black text-brand-purple uppercase tracking-[0.3em] block mb-1">E&S Engenharia & Serviços</span>
+                    <h3 className="text-3xl font-black text-[#0B1120] tracking-tighter uppercase leading-none">Termos de Operação</h3>
+                  </div>
+                  <button 
+                    onClick={() => setShowTerms(false)}
+                    className="p-2 hover:bg-slate-50 rounded-full transition-colors font-black text-slate-400 hover:text-slate-900"
+                  >
+                    ✕
+                  </button>
+                </div>
+                
+                <div className="space-y-6 text-sm text-slate-600 leading-relaxed">
+                  <p className="font-semibold text-slate-800">
+                    Bem-vindo aos Termos de Operação da E&S Engenharia & Serviços SU, LDA. Estes termos regem a nossa mecânica comercial, fornecimento de materiais e serviços industriais em todo o território nacional de Moçambique.
+                  </p>
+                  
+                  <div className="border-l-2 border-brand-cyan pl-4 space-y-2">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-widest text-xs">1. Objecto e Âmbito</h4>
+                    <p>
+                      Comercialização, fornecimento prático e distribuição de materiais elétricos de alta e média tensão (XLPE), transformadores trifásicos de distribuição, motores industriais do fabricante Siemens e serviços oficiais de engenharia de infraestruturas.
+                    </p>
+                  </div>
+
+                  <div className="border-l-2 border-brand-cyan pl-4 space-y-2">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-widest text-xs">2. Protocolo de Requisição de Stock</h4>
+                    <p>
+                      Todas as mercadorias adicionadas ao protocolo de carrinho constituem solicitações de cotação corporativa formais. As faturas proforma emitidas pelo Lavo João Mouzinho estão asseguradas legalmente sob o NUIT organizacional 402153571.
+                    </p>
+                  </div>
+
+                  <div className="border-l-2 border-brand-cyan pl-4 space-y-2">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-widest text-xs">3. Logística e Rastreamento Nacional</h4>
+                    <p>
+                      O cliente pode optar por Levantamento Prático nos armazéns oficiais (Manica/Chimoio) ou entrega rodoviária via transportadoras parceiras na EN6 ou EN1. O trânsito de transformadores e grandes ativos de infraestrutura é rastreável em tempo real no nosso mapa integrado de rotas.
+                    </p>
+                  </div>
+
+                  <div className="border-l-2 border-brand-cyan pl-4 space-y-2">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-widest text-xs">4. Garantias Tecnológicas</h4>
+                    <p>
+                      Todos os transformadores e motores faturados gozam de garantia de fabricante estendida para 12 meses a contar do ato de entrega certificado, desde que instalados e parametrizados por técnicos qualificados homologados de acordo com os regulamentos de segurança locais.
+                    </p>
+                  </div>
+
+                  <div className="border-l-2 border-brand-cyan pl-4 space-y-2">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-widest text-xs">5. Condições Legais e de Pagamento</h4>
+                    <p>
+                      Sujeito a regulamentações de comércio da República de Moçambique, os pagamentos são liquidados por canal bancário (M-Pesa corporativo ou transferência bancária registada) antes do desalfandegamento ou carregamento dos materiais nas instalações da E&S.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button
+                  onClick={() => setShowTerms(false)}
+                  className="px-6 py-3 bg-[#0B1120] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors"
+                >
+                  Confirmar e Fechar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
