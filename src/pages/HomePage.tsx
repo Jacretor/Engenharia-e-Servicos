@@ -9,6 +9,7 @@ export const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [showTerms, setShowTerms] = useState(false);
   const [activeCategory, setActiveCategory] = useState<Category | 'Todos'>('Todos');
+  const [activePhotoIndex, setActivePhotoIndex] = useState<{[productId: string]: number}>({});
   const navigate = useNavigate();
 
   // Sliding beautiful background images carousel
@@ -270,31 +271,53 @@ export const HomePage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {filteredItems.map((p, i) => (
-                <motion.div
-                  key={p.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.05 }}
-                  className="group"
-                >
-                  <div className="relative aspect-[4/5] bg-slate-50 rounded-[48px] overflow-hidden mb-8 border border-slate-100 group-hover:border-brand-cyan/30 transition-all duration-700 hover:shadow-2xl hover:shadow-brand-cyan/5">
-                    {p.foto_url ? (
-                      <img src={p.foto_url} alt={p.nome} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-200">
-                        <Package size={100} strokeWidth={0.5} />
+              {filteredItems.map((p, i) => {
+                const photos = p.foto_url ? p.foto_url.split(',').map(s => s.trim()).filter(Boolean) : [];
+                const currentIdx = activePhotoIndex[p.id] || 0;
+                const mainPhoto = photos[currentIdx] || '';
+                return (
+                  <motion.div
+                    key={p.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.05 }}
+                    className="group"
+                  >
+                    <div className="relative aspect-[4/5] bg-slate-50 rounded-[48px] overflow-hidden mb-8 border border-slate-100 group-hover:border-brand-cyan/30 transition-all duration-700 hover:shadow-2xl hover:shadow-brand-cyan/5">
+                      {mainPhoto ? (
+                        <img src={mainPhoto} alt={p.nome} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-200">
+                          <Package size={100} strokeWidth={0.5} />
+                        </div>
+                      )}
+
+                      {/* Dot overlay selector inside homepage list asset image container */}
+                      {photos.length > 1 && (
+                        <div className="absolute inset-x-0 bottom-4 flex justify-center gap-1.5 z-10 bg-[#0B1120]/60 backdrop-blur-xs py-1 px-2.5 rounded-full w-max mx-auto">
+                          {photos.map((_, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActivePhotoIndex(prev => ({ ...prev, [p.id]: idx }));
+                              }}
+                              className={`w-1.5 h-1.5 rounded-full transition-all ${idx === currentIdx ? 'bg-brand-cyan scale-125' : 'bg-white/40 hover:bg-white'}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="absolute top-8 left-8">
+                         <span className="px-5 py-2.5 bg-white/90 backdrop-blur rounded-full text-[9px] font-black uppercase tracking-widest text-[#0B1120] shadow-sm">
+                           {p.categoria}
+                         </span>
                       </div>
-                    )}
-                    <div className="absolute top-8 left-8">
-                       <span className="px-5 py-2.5 bg-white/90 backdrop-blur rounded-full text-[9px] font-black uppercase tracking-widest text-[#0B1120] shadow-sm">
-                         {p.categoria}
-                       </span>
                     </div>
-                  </div>
-                  
-                  <div className="px-4">
+                    
+                    <div className="px-4">
                     <h3 className="text-xl font-black text-[#0B1120] tracking-tighter mb-2 group-hover:text-brand-purple transition-colors">{p.nome}</h3>
                     <div className="flex items-center justify-between">
                        <p className="text-lg font-black text-[#0B1120]">
@@ -309,7 +332,8 @@ export const HomePage = () => {
                     </div>
                   </div>
                 </motion.div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -378,29 +402,29 @@ export const HomePage = () => {
                 </div>
              </div>
 
-             <div className="grid grid-cols-2 md:grid-cols-2 gap-20">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-12 sm:gap-20">
                 <div>
-                   <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-600 mb-10">Navegação</h5>
-                   <ul className="space-y-6">
+                   <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-600 mb-6 sm:mb-10">Navegação</h5>
+                   <ul className="space-y-4 sm:space-y-6">
                       <li><a href="#catalog" className="text-xs font-black uppercase tracking-widest text-[#0B1120] hover:text-brand-purple transition-colors">Produtos</a></li>
                       <li><a href="#services" className="text-xs font-black uppercase tracking-widest text-[#0B1120] hover:text-brand-purple transition-colors">Serviços Técnicos</a></li>
                       <li><Link to="/login" className="text-xs font-black uppercase tracking-widest bg-[#0B1120] hover:bg-slate-800 text-white px-4 py-2.5 rounded-lg transition-all">Painel Privado</Link></li>
                    </ul>
                 </div>
                 <div>
-                   <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-600 mb-10">Contactos Oficiais</h5>
-                   <ul className="space-y-6">
+                   <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-600 mb-6 sm:mb-10">Contactos Oficiais</h5>
+                   <ul className="space-y-4 sm:space-y-6">
                       <li className="text-xs font-black uppercase tracking-widest text-[#0B1120]">+258 844 821 126</li>
-                      <li className="text-xs font-black uppercase tracking-widest text-[#0B1120]">admin@engservicos.co.mz</li>
+                      <li className="text-xs font-black uppercase tracking-widest text-[#0B1120] break-all">admin@engservicos.co.mz</li>
                       <li className="text-xs font-black uppercase tracking-widest text-[#0B1120]">Chimoio, Moçambique</li>
                    </ul>
                 </div>
              </div>
           </div>
           
-          <div className="mt-32 pt-12 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-10">
-             <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em]">© 2020-2026 E&S Engenharia & Serviços SU, LDA. Registro Moçambique.</p>
-             <div className="flex gap-10">
+          <div className="mt-20 sm:mt-32 pt-12 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-10 text-center md:text-left">
+             <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] leading-relaxed">© 2020-2026 E&S Engenharia & Serviços SU, LDA. Registro Moçambique.</p>
+             <div className="flex flex-wrap justify-center gap-6 sm:gap-10">
                 <span 
                   onClick={() => setShowTerms(true)} 
                   className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] hover:text-[#0B1120] hover:underline cursor-pointer transition-colors duration-300"

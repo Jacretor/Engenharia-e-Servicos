@@ -19,7 +19,7 @@ export interface User {
   id: string;
   email: string;
   nome?: string;
-  role: 'client' | 'admin';
+  role: 'client' | 'admin' | 'funcionario';
   active: boolean;
 }
 

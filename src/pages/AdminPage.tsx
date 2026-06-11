@@ -38,7 +38,7 @@ export const AdminPage = () => {
   
   // Client filters
   const [clientFilterStatus, setClientFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
-  const [clientFilterRole, setClientFilterRole] = useState<'all' | 'client' | 'admin'>('all');
+  const [clientFilterRole, setClientFilterRole] = useState<'all' | 'client' | 'admin' | 'funcionario'>('all');
   const [clientSearch, setClientSearch] = useState('');
 
   // Inventory filters
@@ -96,6 +96,7 @@ export const AdminPage = () => {
   const [preco, setPreco] = useState('');
   const [quantidade, setQuantidade] = useState('');
   const [fotoUrl, setFotoUrl] = useState('');
+  const [tempUrl, setTempUrl] = useState('');
   const [descricao, setDescricao] = useState('');
 
   // Encomendas and Local File Upload States
@@ -111,33 +112,49 @@ export const AdminPage = () => {
   const [editCoords, setEditCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const handleProductUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploadProgress(true);
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64 = reader.result as string;
-      try {
-        const res = await fetch('/api/upload-base64', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: file.name, data: base64 })
-        });
-        if (res.ok) {
-          const resData = await res.json();
-          setFotoUrl(resData.url);
-        } else {
-          setFotoUrl(base64);
-        }
-      } catch (err) {
-        console.error(err);
-        setFotoUrl(base64);
-      } finally {
-        setUploadProgress(false);
-      }
-    };
-    reader.readAsDataURL(file);
+    const uploads = Array.from(files).map((file) => {
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64 = reader.result as string;
+          try {
+            const res = await fetch('/api/upload-base64', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: file.name, data: base64 })
+            });
+            if (res.ok) {
+              const resData = await res.json();
+              resolve(resData.url);
+            } else {
+              resolve(base64);
+            }
+          } catch (err) {
+            console.error(err);
+            resolve(base64);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    try {
+      const urls = await Promise.all(uploads);
+      setFotoUrl(prev => {
+        const existing = prev ? prev.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const combined = [...existing, ...urls];
+        return combined.join(',');
+      });
+    } catch (err) {
+      console.error('Erro no upload de fotos:', err);
+    } finally {
+      setUploadProgress(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleUpdateOrderStatus = async (
@@ -176,38 +193,31 @@ export const AdminPage = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    let endpoint = '/api/produtos';
-    if (activeTab === 'clients') endpoint = '/api/clientes';
-    if (activeTab === 'orders') endpoint = '/api/admin/encomendas';
-
     try {
-      const res = await fetch(endpoint);
-      if (!res.ok) throw new Error('API error');
-      const data = await res.json();
-      
-      if (activeTab === 'inventory' || activeTab === 'stats') {
-        setProdutos(Array.isArray(data) ? data : []);
-        if (activeTab === 'stats') {
-          const clientRes = await fetch('/api/clientes');
-          const clientData = await clientRes.json();
-          setClientes(Array.isArray(clientData) ? clientData : []);
-          
-          try {
-            const ordersRes = await fetch('/api/admin/encomendas');
-            const ordersData = await ordersRes.json();
-            setEncomendas(Array.isArray(ordersData) ? ordersData : []);
-          } catch (err) { console.error(err); }
-        }
-      } else if (activeTab === 'clients') {
-        setClientes(Array.isArray(data) ? data : []);
-      } else if (activeTab === 'orders') {
-        setEncomendas(Array.isArray(data) ? data : []);
+      // Fetch everything concurrently to ensure live stats and notification badges are always updated
+      const [prodRes, cliRes, ordRes] = await Promise.all([
+        fetch('/api/produtos'),
+        fetch('/api/clientes'),
+        fetch('/api/admin/encomendas')
+      ]);
+
+      if (prodRes.ok) {
+        const prodData = await prodRes.json();
+        setProdutos(Array.isArray(prodData) ? prodData : []);
+      }
+      if (cliRes.ok) {
+        const cliData = await cliRes.json();
+        setClientes(Array.isArray(cliData) ? cliData : []);
+      }
+      if (ordRes.ok) {
+        const ordData = await ordRes.json();
+        setEncomendas(Array.isArray(ordData) ? ordData : []);
       }
     } catch (e) { 
-      console.error(e); 
-      if (activeTab === 'inventory') setProdutos([]);
-      else if (activeTab === 'clients') setClientes([]);
-      else if (activeTab === 'orders') setEncomendas([]);
+      console.error('Error fetching admin data:', e); 
+      setProdutos([]);
+      setClientes([]);
+      setEncomendas([]);
     } finally {
       setLoading(false);
     }
@@ -216,6 +226,13 @@ export const AdminPage = () => {
   const handleToggleClient = async (id: string) => {
     try {
       await fetch(`/api/clientes/${id}/toggle`, { method: 'PUT' });
+      fetchData();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleToggleRole = async (id: string) => {
+    try {
+      await fetch(`/api/clientes/${id}/toggle-role`, { method: 'PUT' });
       fetchData();
     } catch (e) { console.error(e); }
   };
@@ -405,7 +422,12 @@ export const AdminPage = () => {
               }`}
             >
               <item.icon size={20} />
-              {item.label}
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.id === 'orders' && (encomendas || []).filter(o => o?.status === 'Pendente' || o?.status === 'Processando').length > 0 && (
+                <span className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center font-black text-[9px] shadow-sm animate-pulse">
+                  {(encomendas || []).filter(o => o?.status === 'Pendente' || o?.status === 'Processando').length}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -428,6 +450,39 @@ export const AdminPage = () => {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/50 backdrop-blur-sm lg:ml-80">
             <div className="w-12 h-12 border-4 border-brand-cyan border-t-transparent rounded-full animate-spin" />
           </div>
+        )}
+
+        {/* Dynamic Client Order Notifications for Admin */}
+        {(encomendas || []).filter(o => o?.status === 'Pendente' || o?.status === 'Processando').length > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="mb-12 p-6 sm:p-8 bg-amber-50 rounded-3xl border border-amber-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/50 rounded-full translate-x-16 -translate-y-16 animate-pulse" />
+            
+            <div className="flex items-center gap-5 relative z-10">
+              <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-amber-500/20 animate-bounce">
+                <FileText size={22} className="stroke-[2.5]" />
+              </div>
+              <div className="text-left font-sans">
+                <span className="text-[10px] font-black text-amber-700 uppercase tracking-[0.25em] block mb-1">Alertas do Sistema Logístico</span>
+                <h4 className="text-lg font-black text-slate-900 leading-tight">
+                  Prezada Helena Garife, tem <span className="text-amber-600 underline font-black">{(encomendas || []).filter(o => o?.status === 'Pendente' || o?.status === 'Processando').length}</span> pedidos pendentes de validação técnica!
+                </h4>
+                <p className="text-xs text-slate-500 font-semibold mt-1">Verifique os comprovativos bancários em anexo no painel de encomendas para emitir a confirmação.</p>
+              </div>
+            </div>
+
+            {activeTab !== 'orders' && (
+              <button
+                onClick={() => setActiveTab('orders')}
+                className="px-6 py-3.5 bg-[#0B1120] hover:bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md flex items-center gap-2 relative z-10 cursor-pointer flex-shrink-0"
+              >
+                Auditar Encomendas <Plus size={14} className="rotate-45" />
+              </button>
+            )}
+          </motion.div>
         )}
         
         <header className="flex flex-col md:flex-row justify-between md:items-end gap-12 mb-16 lg:mb-24">
@@ -654,6 +709,7 @@ export const AdminPage = () => {
                  >
                    <option value="all">Todas as Funções</option>
                    <option value="client">Clientes</option>
+                   <option value="funcionario">Funcionários</option>
                    <option value="admin">Administradores</option>
                  </select>
                </div>
@@ -680,7 +736,20 @@ export const AdminPage = () => {
                    </div>
                    <div className="flex justify-between items-center bg-slate-50 p-5 rounded-2xl">
                      <span className="text-[9px] font-black uppercase text-[#0B1120]/30 tracking-widest">Nível Operativo</span>
-                     <span className="px-3 py-1 bg-brand-purple/10 text-brand-purple rounded-md text-[9px] font-black uppercase">{c.role || 'Associado'}</span>
+                     <div className="flex items-center gap-2">
+                       <span className="px-3 py-1 bg-brand-purple/10 text-brand-purple rounded-md text-[9px] font-black uppercase">
+                         {c.role === 'funcionario' ? 'Funcionário' : c.role === 'admin' ? 'Admin' : 'Cliente'}
+                       </span>
+                       {c.email !== 'helenagarife@gmail.com' && c.role !== 'admin' && (
+                         <button
+                           onClick={() => handleToggleRole(c.id)}
+                           className="px-2.5 py-1 bg-brand-cyan/15 hover:bg-brand-cyan text-[#008fcc] hover:text-white rounded-md text-[8px] font-black uppercase tracking-wider transition-colors focus:outline-none"
+                           title="Alternar entre Cliente e Funcionário"
+                         >
+                           Alterar
+                         </button>
+                       )}
+                     </div>
                    </div>
                 </div>
 
@@ -1162,15 +1231,15 @@ export const AdminPage = () => {
                     </div>
 
                      <div className="md:col-span-2 flex flex-col gap-3 font-sans">
-                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-4">Imagem do Ativo (Upload Local ou Link URL)</label>
+                       <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Imagens do Ativo (Pode adicionar várias fotos!)</label>
                        
                        <input 
                          type="file" 
                          ref={fileInputRef} 
-                         onChange={handleProductUpload} 
-                         accept="image/*" 
-                         className="hidden" 
-                       />
+                         onChange={handleProductUpload}
+                          multiple
+                          accept="image/*"
+                          className="hidden" />
 
                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                          {/* Upload Dropzone option */}
@@ -1186,8 +1255,8 @@ export const AdminPage = () => {
                              <>
                                <Camera size={24} className="text-slate-400" />
                                <div className="text-center">
-                                 <span className="block text-[10px] font-black uppercase tracking-widest text-[#0B1120]">Upload de Imagem</span>
-                                 <span className="block text-[8px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Do meu dispositivo</span>
+                                 <span className="block text-[10px] font-black uppercase tracking-widest text-[#0B1120]">Upload de Foto(s)</span>
+                                 <span className="block text-[8px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Selecione uma ou mais fotos para o carrossel</span>
                                </div>
                              </>
                            )}
@@ -1196,22 +1265,112 @@ export const AdminPage = () => {
                          {/* URL Input option as manual backup */}
                          <div className="flex flex-col justify-between bg-slate-50/50 border border-slate-100 p-6 rounded-2xl">
                            <div>
-                             <span className="block text-[10px] font-black uppercase tracking-widest text-[#0B1120] mb-2">Ou digite o link URL da foto:</span>
-                             <input 
-                               value={fotoUrl} 
-                               onChange={e => setFotoUrl(e.target.value)} 
-                               placeholder="https://..." 
-                               className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-[10px] font-bold text-[#0B1120] outline-none focus:border-brand-cyan" 
-                             />
-                           </div>
-                           <div className="flex items-center gap-3 mt-4">
-                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest font-sans">Prévia:</span>
-                             <div className="w-10 h-10 bg-white rounded-lg border flex items-center justify-center overflow-hidden p-0.5 shrink-0">
-                               {fotoUrl ? <img src={fotoUrl} className="w-full h-full object-cover rounded-md" /> : <div className="text-xs">📦</div>}
+                             <span className="block text-[10px] font-black uppercase tracking-widest text-[#0B1120] mb-2">Ou adicione por link URL:</span>
+                             <div className="flex gap-2">
+                               <input 
+                                 value={tempUrl} 
+                                 onChange={e => setTempUrl(e.target.value)} 
+                                 placeholder="https://exemplo.com/foto.jpg" 
+                                 className="flex-1 px-4 py-3 bg-white border border-slate-100 rounded-xl text-[10px] font-bold text-[#0B1120] outline-none focus:border-brand-cyan" 
+                               />
+                               <button
+                                 type="button"
+                                 onClick={() => {
+                                   if (tempUrl.trim()) {
+                                     setFotoUrl(prev => {
+                                       const existing = prev ? prev.split(',').map(s => s.trim()).filter(Boolean) : [];
+                                       return [...existing, tempUrl.trim()].join(',');
+                                     });
+                                     setTempUrl('');
+                                   }
+                                 }}
+                                 className="px-4 bg-[#0B1120] hover:bg-brand-cyan hover:text-[#0B1120] text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors"
+                               >
+                                 Adicionar
+                               </button>
                              </div>
                            </div>
+                           <p className="text-[9px] text-slate-400 font-medium opacity-80">Insira o link direto de uma imagem externa e clique em Adicionar.</p>
                          </div>
                        </div>
+
+                       {/* Interactive Gallery visualizer */}
+                       {fotoUrl ? (
+                         <div className="mt-4 bg-slate-50 border border-slate-150 rounded-2xl p-6">
+                           <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 font-sans">Galeria do Equipamento ({fotoUrl.split(',').filter(Boolean).length} fotos):</span>
+                           
+                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                             {fotoUrl.split(',').map((url, idx) => {
+                               const cleanUrl = url.trim();
+                               if (!cleanUrl) return null;
+                               const isMain = idx === 0;
+                               return (
+                                 <div key={idx} className="relative group aspect-square bg-white border border-slate-200 rounded-xl overflow-hidden p-1 shadow-sm flex flex-col justify-between">
+                                   <div className="relative flex-1 rounded-sm overflow-hidden bg-slate-100">
+                                     <img src={cleanUrl} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover animate-fade-in" referrerPolicy="no-referrer" />
+                                     {isMain && (
+                                       <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-[#4285F4] text-white text-[8px] font-bold uppercase tracking-wider rounded shadow">
+                                         Principal
+                                       </div>
+                                     )}
+                                   </div>
+                                   <div className="mt-2 flex flex-col gap-1">
+                                     {!isMain ? (
+                                       <button
+                                         type="button"
+                                         onClick={() => {
+                                           const arr = fotoUrl.split(',').map(s => s.trim()).filter(Boolean);
+                                           const item = arr.splice(idx, 1)[0];
+                                           arr.unshift(item);
+                                           setFotoUrl(arr.join(','));
+                                         }}
+                                         title="Definir como Principal"
+                                         className="w-full py-1 text-slate-500 bg-slate-100 hover:bg-brand-cyan hover:text-[#0B1120] rounded text-[8px] font-bold uppercase transition-colors text-center"
+                                       >
+                                         Principal
+                                       </button>
+                                     ) : (
+                                       <div className="w-full py-1 text-emerald-600 rounded text-[8px] font-bold uppercase text-center bg-emerald-50 border border-emerald-100">
+                                         Ativo
+                                       </div>
+                                     )}
+                                     <button
+                                       type="button"
+                                       onClick={() => {
+                                         const arr = fotoUrl.split(',').map(s => s.trim()).filter(Boolean);
+                                         arr.splice(idx, 1);
+                                         setFotoUrl(arr.join(','));
+                                       }}
+                                       title="Eliminar Foto"
+                                       className="w-full py-1 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded text-[8px] font-bold uppercase tracking-wide transition-colors text-center"
+                                     >
+                                       Remover
+                                     </button>
+                                   </div>
+                                 </div>
+                               );
+                             })}
+                           </div>
+                           
+                           <div className="mt-4 flex gap-2">
+                             <button
+                               type="button"
+                               onClick={() => {
+                                 if (confirm('Tem a certeza que deseja limpar todas as fotos?')) {
+                                   setFotoUrl('');
+                                 }
+                               }}
+                               className="px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 text-[9px] font-black uppercase tracking-wider rounded-lg transition-colors ml-auto"
+                             >
+                               Limpar Todas
+                             </button>
+                           </div>
+                         </div>
+                       ) : (
+                         <div className="mt-2 text-center py-6 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                           Nenhuma foto associada a este ativo
+                         </div>
+                       )}
                     </div>
 
                     <div className="md:col-span-2">

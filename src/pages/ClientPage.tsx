@@ -9,9 +9,13 @@ import {
   Search, 
   PhoneCall, 
   ArrowRight,
+  Menu,
   Plus,
   ShoppingCart,
   ChevronRight,
+  ChevronLeft,
+  Maximize2,
+  X,
   Monitor,
   Cpu,
   Wrench,
@@ -53,6 +57,7 @@ interface Message {
 export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPageProps) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [encomendas, setEncomendas] = useState<Encomenda[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +65,10 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
   const [selectedCategory, setSelectedCategory] = useState('Todas as Categorias');
   const [showTerms, setShowTerms] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [activePhotoIndex, setActivePhotoIndex] = useState<{[productId: string]: number}>({});
+  const [selectedProduto, setSelectedProduto] = useState<Produto | null>(null);
+  const [lightboxPhotoIndex, setLightboxPhotoIndex] = useState<number>(0);
+  const [lightboxFitMode, setLightboxFitMode] = useState<'contain' | 'cover'>('contain');
   
   // Chat State
   const [chatInput, setChatInput] = useState('');
@@ -262,6 +271,14 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
       <main className="flex-1 min-w-0">
         <header className="h-24 bg-white border-b border-slate-200 flex items-center justify-between px-6 sm:px-10 sticky top-0 z-30 shadow-sm">
           <div className="flex items-center gap-3 lg:hidden">
+            <button
+              type="button"
+              onClick={() => {}}
+              className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[#0B1120] rounded-xl transition-all active:scale-95 flex items-center justify-center mr-1"
+              title="Menu Lateral"
+            >
+              <Menu size={18} />
+            </button>
             <div className="w-10 h-10 bg-[#0B1120] rounded-xl flex items-center justify-center p-1">
                <img src="/LogoTipo.png" className="w-full h-full object-contain" alt="Logo" />
             </div>
@@ -473,44 +490,111 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 pb-20">
-                    {filteredProdutos.map(p => (
-                      <motion.div 
-                        key={p.id}
-                        layout
-                        className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden group hover:shadow-2xl hover:shadow-slate-200/50 hover:border-slate-300 transition-all flex flex-col h-full"
-                      >
-                        <div className="h-56 bg-slate-100 relative overflow-hidden">
-                           <img 
-                              src={p.foto_url || 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=400&q=80'} 
-                              alt={p.nome}
-                              loading="lazy"
-                              decoding="async"
-                              className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ${p.quantidade === 0 ? 'grayscale opacity-60' : ''}`}
-                              referrerPolicy="no-referrer"
-                           />
-                           <div className="absolute top-4 left-4 flex flex-col gap-2">
-                             <span className="px-3 py-1 bg-[#0B1120] text-brand-cyan text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg">
-                               {p.categoria}
-                             </span>
-                             {p.quantidade === 0 ? (
-                               <div className="flex items-center gap-2 px-3 py-1 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg animate-pulse">
-                                 <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                                 Esgotado
+                    {filteredProdutos.map(p => {
+                      const photos = p.foto_url ? p.foto_url.split(',').map(s => s.trim()).filter(Boolean) : [];
+                      const currentIdx = activePhotoIndex[p.id] || 0;
+                      const mainPhoto = photos[currentIdx] || 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=400&q=80';
+                      return (
+                        <motion.div 
+                          key={p.id}
+                          layout
+                          className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden group hover:shadow-2xl hover:shadow-slate-200/50 hover:border-slate-300 transition-all flex flex-col h-full"
+                        >
+                          <div 
+                             onClick={() => {
+                               setSelectedProduto(p);
+                               setLightboxPhotoIndex(currentIdx);
+                               setLightboxFitMode('contain');
+                             }}
+                             className="h-56 bg-slate-50/80 relative overflow-hidden cursor-pointer group/img border-b border-slate-100 flex items-center justify-center p-3"
+                             title="Clique para ver imagem completa e ampliada"
+                          >
+                             <img 
+                                src={mainPhoto} 
+                                alt={p.nome}
+                                loading="lazy"
+                                decoding="async"
+                                className={`w-full h-full object-contain group-hover/img:scale-102 transition-transform duration-500 ${p.quantidade === 0 ? 'grayscale opacity-40' : ''}`}
+                                referrerPolicy="no-referrer"
+                             />
+                             
+                             {/* Visual Zoom Indicator Badge on Hover */}
+                             <div className="absolute inset-0 bg-[#0B1120]/10 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                               <div className="px-3 py-1.5 bg-[#0B1120]/80 text-brand-cyan text-[9px] font-bold uppercase tracking-widest rounded-full backdrop-blur-xs flex items-center gap-1.5 shadow-md">
+                                 <Maximize2 size={10} /> Ampliar Foto
                                </div>
-                             ) : p.quantidade <= 10 ? (
-                               <div className="flex items-center gap-2 px-3 py-1 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg animate-pulse">
-                                 <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                                 Stock Baixo ({p.quantidade})
-                               </div>
-                             ) : (
-                               <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg">
-                                 <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
-                                 Em Stock
+                             </div>
+
+                             {/* Float Left & Right Arrows for Easy Carousel Switching */}
+                             {photos.length > 1 && (
+                               <>
+                                 <button
+                                   type="button"
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     const targetIndex = (currentIdx - 1 + photos.length) % photos.length;
+                                     setActivePhotoIndex(prev => ({ ...prev, [p.id]: targetIndex }));
+                                   }}
+                                   className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/95 text-[#0B1120] hover:bg-[#0B1120] hover:text-brand-cyan rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 z-20"
+                                   title="Foto anterior"
+                                 >
+                                   <ChevronLeft size={16} className="stroke-[3]" />
+                                 </button>
+                                 <button
+                                   type="button"
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     const targetIndex = (currentIdx + 1) % photos.length;
+                                     setActivePhotoIndex(prev => ({ ...prev, [p.id]: targetIndex }));
+                                   }}
+                                   className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/95 text-[#0B1120] hover:bg-[#0B1120] hover:text-brand-cyan rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 z-20"
+                                   title="Próxima foto"
+                                 >
+                                   <ChevronRight size={16} className="stroke-[3]" />
+                                 </button>
+                                </>
+                             )}
+
+                             {/* Mini Carousel Selection Dots Overlay */}
+                             {photos.length > 1 && (
+                               <div className="absolute inset-x-0 bottom-3 flex justify-center gap-2 z-10 bg-[#0B1120]/75 backdrop-blur-xs py-1.5 px-3 rounded-full w-max mx-auto">
+                                 {photos.map((_, idx) => (
+                                   <button
+                                     key={idx}
+                                     type="button"
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       setActivePhotoIndex(prev => ({ ...prev, [p.id]: idx }));
+                                     }}
+                                     className={`w-2 h-2 rounded-full transition-all ${idx === currentIdx ? 'bg-brand-cyan scale-125' : 'bg-white/30 hover:bg-white'}`}
+                                   />
+                                 ))}
                                </div>
                              )}
-                           </div>
-                        </div>
-                        <div className="p-8 flex-1 flex flex-col">
+
+                             <div className="absolute top-4 left-4 flex flex-col gap-2">
+                               <span className="px-3 py-1 bg-[#0B1120] text-brand-cyan text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg">
+                                 {p.categoria}
+                               </span>
+                               {p.quantidade === 0 ? (
+                                 <div className="flex items-center gap-2 px-3 py-1 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg animate-pulse">
+                                   <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                   Esgotado
+                                 </div>
+                               ) : p.quantidade <= 10 ? (
+                                 <div className="flex items-center gap-2 px-3 py-1 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg animate-pulse">
+                                   <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                   Stock Baixo ({p.quantidade})
+                                 </div>
+                               ) : (
+                                 <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg">
+                                   <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                                   Em Stock
+                                 </div>
+                               )}
+                             </div>
+                          </div>
+                          <div className="p-8 flex-1 flex flex-col">
                            <h4 className="text-sm font-black text-[#0B1120] leading-tight mb-2 group-hover:text-brand-purple transition-colors">{p.nome}</h4>
                            <p className="text-[11px] text-slate-400 font-medium line-clamp-2 mb-6 flex-1">{p.descricao}</p>
                            
@@ -544,7 +628,8 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
                            </div>
                         </div>
                       </motion.div>
-                    ))}
+                    );
+                   })}
                   </div>
                 )}
               </motion.div>
@@ -1156,6 +1241,200 @@ export const ClientPage = ({ user, onAddToCart, cart, onOpenCart }: ClientPagePr
             </motion.div>
           </div>
         )}
+      </AnimatePresence>
+
+      {/* Visual Product Details & Multi-Image Lightbox Modal */}
+      <AnimatePresence>
+        {selectedProduto && (() => {
+          const photos = selectedProduto.foto_url 
+            ? selectedProduto.foto_url.split(',').map(s => s.trim()).filter(Boolean) 
+            : [];
+          const currentIdx = lightboxPhotoIndex;
+          const displayPhoto = photos[currentIdx] || 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=400&q=80';
+          const cartItem = cart.find(item => item.id === selectedProduto.id);
+          const qtyInCart = cartItem ? cartItem.cartQuantity : 0;
+          const isOutOfStock = selectedProduto.quantidade === 0;
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              {/* Backdrop */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setSelectedProduto(null)}
+                className="absolute inset-0 bg-[#0B1120]/90 backdrop-blur-md"
+              />
+              {/* Modal Box */}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 30 }}
+                className="relative w-full max-w-4xl bg-white rounded-[32px] shadow-2xl overflow-hidden border border-slate-100 z-10 flex flex-col md:flex-row max-h-[90vh] md:max-h-[85vh]"
+              >
+                {/* Close Button top-right corner */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedProduto(null)}
+                  className="absolute top-6 right-6 md:top-8 md:right-8 bg-[#0B1120] text-white hover:bg-brand-purple hover:scale-110 p-2.5 rounded-full z-30 transition-all shadow-md active:scale-95"
+                  title="Fechar"
+                >
+                  <X size={18} />
+                </button>
+
+                {/* Left Column: Huge High-Fidelity Interactive Visualizer */}
+                <div className="w-full md:w-1/2 bg-slate-50 flex flex-col justify-between border-r border-slate-100 p-6 relative min-h-[300px] md:min-h-0">
+                  
+                  {/* Aspect/Fit Toggle Button overlay */}
+                  <div className="absolute top-6 left-6 z-20">
+                    <button 
+                      type="button"
+                      onClick={() => setLightboxFitMode(prev => prev === 'contain' ? 'cover' : 'contain')}
+                      className="px-3 py-1.5 bg-[#0B1120]/80 text-white rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-brand-purple transition-all flex items-center gap-1.5 backdrop-blur-xs shadow-md"
+                    >
+                      Aspecto: {lightboxFitMode === 'contain' ? 'Visualização Completa' : 'Preencher Ecran'}
+                    </button>
+                  </div>
+
+                  {/* Large Photo Canvas */}
+                  <div className="flex-grow flex items-center justify-center relative min-h-[220px]">
+                    <img 
+                      src={displayPhoto} 
+                      alt={selectedProduto.nome}
+                      className={`max-h-[420px] w-full transition-all duration-300 rounded-2xl ${
+                        lightboxFitMode === 'contain' 
+                          ? 'object-contain h-[280px] md:h-[350px]' 
+                          : 'object-cover h-[340px] md:h-[400px]'
+                      }`}
+                      referrerPolicy="no-referrer"
+                    />
+
+                    {/* Left/Right Floating High-Contrast Giant Touch Chevrons */}
+                    {photos.length > 1 && (
+                      <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLightboxPhotoIndex(prev => (prev - 1 + photos.length) % photos.length);
+                          }}
+                          className="pointer-events-auto w-10 h-10 bg-white hover:bg-[#0B1120] hover:text-brand-cyan rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-90"
+                          title="Foto anterior"
+                        >
+                          <ChevronLeft size={20} className="stroke-[3]" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLightboxPhotoIndex(prev => (prev + 1) % photos.length);
+                          }}
+                          className="pointer-events-auto w-10 h-10 bg-white hover:bg-[#0B1120] hover:text-brand-cyan rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-90"
+                          title="Próxima foto"
+                        >
+                          <ChevronRight size={20} className="stroke-[3]" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Multi-Photo Thumbnails List Grid */}
+                  {photos.length > 1 && (
+                    <div className="mt-4 pt-4 border-t border-slate-200/50">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center mb-2">Vistas Disponíveis ({photos.length})</p>
+                      <div className="flex justify-center gap-2 overflow-x-auto pb-1 max-w-full">
+                        {photos.map((ph, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setLightboxPhotoIndex(idx)}
+                            className={`w-14 h-14 rounded-xl overflow-hidden border-2 bg-white flex items-center justify-center p-0.5 flex-shrink-0 transition-all ${
+                              idx === currentIdx 
+                                ? 'border-[#0B1120] scale-105 shadow-md' 
+                                : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <img src={ph} alt="" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column: Detailed Product Controls & Action Triggers */}
+                <div className="w-full md:w-1/2 p-8 md:p-10 flex flex-col justify-between font-sans text-left max-h-[50vh] md:max-h-none overflow-y-auto">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="px-3 py-1 bg-[#0B1120] text-brand-cyan text-[10px] font-black uppercase tracking-widest rounded-lg">
+                        {selectedProduto.categoria}
+                      </span>
+                      {selectedProduto.quantidade === 0 ? (
+                        <span className="px-3 py-1 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">
+                          Esgotado
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">
+                          Em Stock ({selectedProduto.quantidade} unid.)
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="text-2xl md:text-3xl font-black text-[#0B1120] tracking-tight leading-tight">
+                      {selectedProduto.nome}
+                    </h3>
+                    
+                    <div className="pt-2 border-t border-b border-slate-100 py-4 flex items-center justify-between">
+                      <div>
+                        <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Preço Recomendado</span>
+                        <p className="text-3xl font-black text-[#0B1120] tracking-tighter">
+                          {selectedProduto.preco.toLocaleString()} <span className="text-xs font-bold text-slate-400 ml-1">Kz/MT</span>
+                        </p>
+                      </div>
+                      
+                      {qtyInCart > 0 && (
+                        <div className="px-4 py-2 bg-brand-cyan/15 border border-brand-cyan/25 rounded-2xl flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-pulse" />
+                          <span className="text-[10px] font-black text-[#006099] uppercase tracking-wider">No seu carrinho: {qtyInCart}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      <span className="block text-[10px] font-black text-[#0B1120] uppercase tracking-widest leading-none">Ficha Técnica & Descrição</span>
+                      <div className="text-sm text-slate-500 leading-relaxed max-h-44 overflow-y-auto pr-1">
+                        {selectedProduto.descricao || 'Este material de alta engenharia ou serviço especializado não possui descrição cadastrada.'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions Area */}
+                  <div className="pt-8 border-t border-slate-100 flex flex-col gap-3">
+                    <button
+                      type="button"
+                      disabled={isOutOfStock}
+                      onClick={() => {
+                        onAddToCart(selectedProduto);
+                      }}
+                      className="w-full py-4 bg-[#0B1120] hover:bg-brand-purple text-white disabled:bg-slate-200 disabled:text-slate-400 text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl hover:shadow-brand-purple/20 transition-all flex items-center justify-center gap-2"
+                    >
+                      <ShoppingCart size={16} />
+                      {isOutOfStock ? 'Sem Stock Disponível' : 'Adicionar ao Carrinho'}
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProduto(null)}
+                      className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all"
+                    >
+                      Fechar Visualização
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
     </div>
   );

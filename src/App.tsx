@@ -11,6 +11,7 @@ import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
 import { AdminPage } from './pages/AdminPage';
 import { ClientPage } from './pages/ClientPage';
+import { EmployeePage } from './pages/EmployeePage';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -192,7 +193,7 @@ function AppContent({
   isProcessingCheckout
 }: any) {
   const location = useLocation();
-  const isAdminPath = location.pathname.startsWith('/admin');
+  const isAdminPath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/funcionario');
   const isDashboardPath = location.pathname.startsWith('/dashboard');
 
   return (
@@ -220,29 +221,68 @@ function AppContent({
       <Routes>
           <Route path="/" element={
             user ? (
-              <Navigate to={user.email === 'helenagarife@gmail.com' ? "/admin" : "/dashboard"} replace />
+              user.email === 'helenagarife@gmail.com' ? (
+                <Navigate to="/admin" replace />
+              ) : user.role === 'funcionario' ? (
+                <Navigate to="/funcionario" replace />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
             ) : (
               <HomePage />
             )
           } />
-          <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <AuthPage type="login" />} />
-          <Route path="/cadastro" element={user ? <Navigate to="/dashboard" replace /> : <AuthPage type="signup" />} />
+          <Route path="/login" element={
+            user ? (
+              user.email === 'helenagarife@gmail.com' ? (
+                <Navigate to="/admin" replace />
+              ) : user.role === 'funcionario' ? (
+                <Navigate to="/funcionario" replace />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
+            ) : (
+              <AuthPage type="login" />
+            )
+          } />
+          <Route path="/cadastro" element={
+            user ? (
+              user.email === 'helenagarife@gmail.com' ? (
+                <Navigate to="/admin" replace />
+              ) : user.role === 'funcionario' ? (
+                <Navigate to="/funcionario" replace />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
+            ) : (
+              <AuthPage type="signup" />
+            )
+          } />
           
           <Route 
             path="/dashboard" 
             element={user ? (
-              <ClientPage 
-                user={user} 
-                onAddToCart={handleAddToCart}
-                cart={cartItems}
-                onOpenCart={() => setIsCartOpen(true)}
-              />
+              user.role === 'funcionario' ? (
+                <Navigate to="/funcionario" replace />
+              ) : (
+                <ClientPage 
+                  user={user} 
+                  onAddToCart={handleAddToCart}
+                  cart={cartItems}
+                  onOpenCart={() => setIsCartOpen(true)}
+                />
+              )
             ) : <Navigate to="/login" />} 
           />
           
           <Route 
             path="/admin" 
             element={user?.email === 'helenagarife@gmail.com' ? <AdminPage /> : <Navigate to="/" />} 
+          />
+
+          <Route 
+            path="/funcionario" 
+            element={user?.role === 'funcionario' ? <EmployeePage /> : <Navigate to="/" />} 
           />
         </Routes>
       </div>

@@ -29,13 +29,12 @@ interface CityRoute {
 }
 
 const PREDEFINED_ROUTES: CityRoute[] = [
-  { id: 'chimoio-cidade', name: 'Chimoio (Zona Verde / Centro)', dist: 5, desc: 'Centralidade E&S' },
-  { id: 'gondola', name: 'Gondola', dist: 20, desc: 'Via Estrada Nacional N6' },
-  { id: 'manica', name: 'Manica Fronteira', dist: 35, desc: 'Corredor do Chimoio' },
-  { id: 'beira', name: 'Porto da Beira (Sofala)', dist: 140, desc: 'Eixo de Cargas Pesadas' },
-  { id: 'tete', name: 'Tete (Cahora Bassa)', dist: 390, desc: 'Projectos Agrícolas/Energéticos' },
-  { id: 'maputo', name: 'Maputo (Capital/Sul)', dist: 1100, desc: 'Conexão Matola e Portuário' },
-  { id: 'nampula', name: 'Nampula (Norte)', dist: 1150, desc: 'Centro de Distribuição do Norte' },
+  { id: 'independencia', name: 'Praça da Independência (Chimoio Central)', dist: 3, desc: 'Lugar Público - Próximo ao Prédio do Governo' },
+  { id: 'shoprite', name: 'Shoprite Chimoio (Parque de Estacionamento)', dist: 4, desc: 'Lugar Público - Frente ao Supermercado' },
+  { id: 'fevereiro', name: 'Mercado 3 de Fevereiro (Entrada Principal)', dist: 5, desc: 'Lugar Público - Rotunda de Chimoio' },
+  { id: 'galp', name: 'Posto de Abastecimento Galp EN6 (Chimoio)', dist: 6, desc: 'Lugar Público - À beira da Estrada Nacional' },
+  { id: 'gondola-cruz', name: 'Cruzamento de Gôndola (Chapa Próximo ao Mercado)', dist: 22, desc: 'Lugar Público Regional EN6' },
+  { id: 'manica-rotunda', name: 'Rotunda Central de Manica (Posto Administrativo)', dist: 36, desc: 'Lugar Público Regional de Manica' },
 ];
 
 export const CartDrawer = ({ 
@@ -263,6 +262,25 @@ export const CartDrawer = ({
                     </div>
                   </div>
 
+                  {tipoEntrega === 'levantamento' && (
+                    <div className="space-y-4 bg-emerald-50 border border-emerald-100 p-6 rounded-[28px] mt-4 animate-fade-in text-left">
+                      <span className="block text-[8px] font-black text-emerald-700 uppercase tracking-widest leading-none">📍 Trajeto Oficial & Levantamento Individual</span>
+                      <h4 className="text-xs font-black text-[#0B1120] uppercase mt-1">E&S Engenharia & Serviços Limitada</h4>
+                      <p className="text-[10px] text-slate-500 leading-relaxed font-semibold">
+                        Nossa sede e oficina física estão localizadas em Chimoio. Carregue no botão abaixo para ver o mapa detalhado com rotas, caminho exato de GPS e direções de trânsito em tempo real:
+                      </p>
+                      
+                      <a 
+                        href="https://www.google.com/maps/dir/?api=1&destination=-19.1160,33.4750"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-4 bg-[#0B1120] hover:bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 duration-300 text-center"
+                      >
+                        <span>🧭 Ver Mapa Oficial & Trajeto em Direto</span>
+                      </a>
+                    </div>
+                  )}
+
                   {tipoEntrega === 'delivery' && (
                     <div className="space-y-6 bg-slate-50/70 border border-slate-100 p-6 rounded-[28px] mt-4 animate-fade-in">
                       <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none">Selecione o Destino Regional de Entrega</span>
@@ -340,7 +358,7 @@ export const CartDrawer = ({
                 <div className="space-y-10">
                   <div className="bg-slate-50 p-10 rounded-[40px] border border-slate-100 mb-10">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Total a Liquidar</p>
-                    <p className="text-6xl font-black text-[#0B1120] tracking-tighter">{total.toLocaleString()} <span className="text-2xl text-slate-300">MT</span></p>
+                    <p className="text-6xl font-black text-[#0B1120] tracking-tighter">{grandTotal.toLocaleString()} <span className="text-2xl text-slate-300">MT</span></p>
                   </div>
                   
                   <div className="grid grid-cols-1 gap-6">

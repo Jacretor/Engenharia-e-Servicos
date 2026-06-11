@@ -11,8 +11,30 @@ interface NavigationProps {
 
 export const Navigation = ({ user, cartCount, onOpenCart }: NavigationProps) => {
   const [isOpen, setIsOpen] = React.useState(false);
+  const [dbOnline, setDbOnline] = React.useState<boolean | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  React.useEffect(() => {
+    const checkDbStatus = async () => {
+      try {
+        const response = await fetch('/api/health');
+        if (response.ok) {
+          const data = await response.json();
+          // dbOnline should reflect if database is fully configured and online
+          setDbOnline(data.database_configured && data.database_online);
+        } else {
+          setDbOnline(false);
+        }
+      } catch (e) {
+        setDbOnline(false);
+      }
+    };
+
+    checkDbStatus();
+    const interval = setInterval(checkDbStatus, 15000); // Check every 15s for visual status reactive update
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('es_user');
@@ -32,21 +54,44 @@ export const Navigation = ({ user, cartCount, onOpenCart }: NavigationProps) => 
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-b border-black/5">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 sm:gap-4 md:gap-6 group">
-          <div className="relative flex-shrink-0">
+          <div className="relative flex-shrink-0 pt-1">
             <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-[#0B1120] rounded-xl sm:rounded-2xl flex items-center justify-center overflow-hidden border border-white/10 shadow-2xl group-hover:border-brand-cyan/50 transition-all duration-500 p-1">
                <img src="/LogoTipo.png" className="w-full h-full object-contain" alt="E&S Logo" onError={(e) => {
                  (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=ES&background=0B1120&color=00D2FF&bold=true';
                }} />
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 bg-brand-cyan rounded-full border-2 border-white animate-pulse" />
+            <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 border-white animate-pulse transition-colors duration-500 ${
+              dbOnline === null ? 'bg-slate-300' : dbOnline ? 'bg-emerald-500' : 'bg-amber-500'
+            }`} />
           </div>
           <div className="flex flex-col">
-            <span className="text-xs sm:text-base md:text-xl font-black text-[#0B1120] tracking-tighter uppercase leading-none block">
-              Engenharia & Serviços
-            </span>
-            <span className="text-[7px] sm:text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] sm:tracking-[0.4em] block mt-0.5 sm:mt-1">
-              SU, LDA • Moçambique
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs sm:text-base md:text-xl font-black text-[#0B1120] tracking-tighter uppercase leading-none block">
+                Engenharia & Serviços
+              </span>
+              {dbOnline !== null && (
+                <span className={`hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                  dbOnline 
+                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                    : 'bg-amber-50 text-amber-600 border border-amber-100'
+                }`}>
+                  <span className={`w-1 h-1 rounded-full ${dbOnline ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
+                  {dbOnline ? 'Nuvem' : 'BD Local'}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
+              <span className="text-[7px] sm:text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] sm:tracking-[0.4em] block">
+                SU, LDA • Moçambique
+              </span>
+              {dbOnline !== null && (
+                <span className={`sm:hidden inline-flex items-center gap-1 text-[7px] font-black uppercase tracking-wider ${
+                  dbOnline ? 'text-emerald-500' : 'text-amber-500'
+                }`}>
+                  • {dbOnline ? 'Nuvem' : 'BD Local'}
+                </span>
+              )}
+            </div>
           </div>
         </Link>
 
